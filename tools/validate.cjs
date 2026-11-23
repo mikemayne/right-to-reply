@@ -1,6 +1,6 @@
-const { readFileSync } = require('node:fs');
-const { validate } = require('../extension/feed.js');
-
-const filename = process.argv[2] ?? 'data/responses.json';
-const data = validate(JSON.parse(readFileSync(filename, 'utf8')));
-console.log('Validated', data.parties.length, 'parties.');
+const fs = require('node:fs');
+const sources = require('../extension/sources.js');
+const validator = require('../extension/feed.js');
+const directory = JSON.parse(fs.readFileSync('data/sources.json', 'utf8'));
+sources.load(directory, validator).then(data => console.log('Validated', data.parties.length, 'party sources.'))
+  .catch(error => { console.error(error.message); process.exitCode = 1; });

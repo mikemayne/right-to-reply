@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DIST = ROOT / "dist"
 EXTENSION = ROOT / "extension"
 ASSETS = ("article-reply.js", "content.css", "content.js",
-          "feed.js", "settings.html", "settings.js", "sync.js")
+          "feed.js", "settings.html", "settings.js", "sync.js", "sources.js")
 
 
 def package(name, files):
@@ -26,18 +26,16 @@ def main():
         manifest = {
             "manifest_version": 3,
             "name": "Right to Reply",
-            "version": "0.1.0",
+            "version": "0.2.0",
             "description": "Read publicly reviewed responses from participating parties.",
             "permissions": ["storage", "activeTab"],
             "host_permissions": [
-                "https://github.com/*",
-                "https://release-assets.githubusercontent.com/*",
-                "https://objects.githubusercontent.com/*",
+                "https://raw.githubusercontent.com/*",
             ],
             "content_security_policy": {"extension_pages": (
                 "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
-                "connect-src https://github.com https://release-assets.githubusercontent.com "
-                "https://objects.githubusercontent.com; object-src 'none'; base-uri 'none'; frame-src 'none'"
+                "connect-src https://raw.githubusercontent.com"
+                "; object-src 'none'; base-uri 'none'; frame-src 'none'"
             )},
             "background": {"service_worker": "sync.js"},
             "action": {"default_popup": "settings.html"},
@@ -49,7 +47,7 @@ def main():
             }],
         }
         if target == "firefox":
-            manifest["background"] = {"scripts": ["feed.js", "sync.js"]}
+            manifest["background"] = {"scripts": ["feed.js", "sources.js", "sync.js"]}
             manifest["browser_specific_settings"] = {
                 "gecko": {"id": "right-to-reply@mikemayne", "data_collection_permissions": {"required": ["none"]}}
             }

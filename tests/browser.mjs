@@ -37,20 +37,9 @@ try {
   });
   const settings = context.pages()[0];
   await settings.goto('chrome-extension://' + id + '/settings.html');
-  let releaseReady = false;
-  if (process.env.RIGHT_TO_REPLY_STAGED_RELEASE) {
-    await context.route('https://github.com/mikemayne/right-to-reply/releases/latest/download/responses.json',
-      route => releaseReady ? route.fulfill({ path: join(root, 'data/responses.json'), contentType: 'application/json' }) : route.fulfill({ json: { schemaVersion: 1, parties: [] } }));
-  }
   const page = await context.newPage();
   await page.goto('http://127.0.0.1:' + server.address().port + '/');
   const mark = page.locator('#match [data-check-policy-mark]');
-  if (process.env.RIGHT_TO_REPLY_STAGED_RELEASE) {
-    await settings.waitForFunction(async () => (await chrome.storage.local.get('snapshot')).snapshot?.data.parties.length === 0);
-    assert.equal(await mark.count(), 0);
-    releaseReady = true;
-    await settings.locator('#refresh').click();
-  }
   await mark.waitFor();
   assert.equal(await mark.evaluate(node => node.style.getPropertyValue('--check-policy-color')), '#000000');
   assert.equal(await page.locator('nav [data-check-policy-mark],#negative [data-check-policy-mark]').count(), 0);
