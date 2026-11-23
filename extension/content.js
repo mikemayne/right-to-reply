@@ -11,7 +11,7 @@
   const controls = new WeakMap();
   const pending = new Set();
   const processed = new WeakSet();
-  let settings = { enabled: false, demo: false };
+  let settings = { enabled: false };
   let matcher;
   let eligibleByRoot = new Map();
   let singleArticle;
@@ -286,7 +286,7 @@
     const button = add('button', 'Close');
     button.type = 'button';
     button.addEventListener('click', () => close(true));
-    add('h2', settings.demo ? 'Right to Reply · fictional demo' : 'Right to Reply').id = 'cp-title';
+    add('h2', 'Right to Reply').id = 'cp-title';
     for (const policy of group.candidates) {
       const card = add('article', '');
       add('strong', policy.partyName, card);
@@ -346,14 +346,13 @@
   }
 
   function configure(saved) {
-    const demo = saved.demo === true && ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
-    const data = demo ? globalThis.RightToReplyDemo : saved.snapshot?.data;
+    const data = saved.snapshot?.data;
     const enabled = Boolean(data?.parties.some(party => party.responses.length)) &&
       saved.enabled !== false && saved.sites?.[location.hostname] !== false;
-    const updated = demo ? undefined : saved.snapshot?.version;
-    if (settings.enabled === enabled && settings.demo === demo &&
+    const updated = saved.snapshot?.version;
+    if (settings.enabled === enabled &&
         settings.updated === updated) return;
-    settings = { enabled, demo, updated };
+    settings = { enabled, updated };
     if (enabled) matcher = feed.matcher(data, reply);
     reset();
   }
@@ -361,7 +360,7 @@
   let refreshSequence = 0;
   async function refresh() {
     const request = ++refreshSequence;
-    const saved = await api.storage.local.get(['enabled', 'sites', 'demo', 'snapshot']);
+    const saved = await api.storage.local.get(['enabled', 'sites', 'snapshot']);
     if (request === refreshSequence) configure(saved);
   }
   api.storage.onChanged.addListener(refresh);
