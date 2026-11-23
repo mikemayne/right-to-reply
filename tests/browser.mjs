@@ -68,8 +68,8 @@ try {
       for (const id of node.childIds ?? []) descendants.push(byId.get(id));
     }
     const names = descendants.map(node => node.name?.value).join(' ');
-    assert.match(names, /Lorem ipsum dolor sit amet/);
-    assert.match(names, /Consectetur adipiscing elit/);
+    assert.match(names, /Lorem ipsum dolor sit amet, consectetur adipiscing elit/);
+    assert.match(names, /Ut enim ad minim veniam/);
   };
   await inspectDialog();
   assert.equal(await page.evaluate(() => document.body.lastElementChild.shadowRoot), null);
