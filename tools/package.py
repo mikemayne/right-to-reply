@@ -3,6 +3,7 @@ import argparse
 import json
 import re
 from pathlib import Path
+from urllib.parse import urlsplit
 from zipfile import ZIP_DEFLATED, ZipFile
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -26,6 +27,27 @@ def package(name, files):
             archive.writestr(filename, data)
 
 
+def disclaimer_script(path):
+    """Compile optional owner-only JSON into an isolated content-script constant."""
+    data = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    if not isinstance(data, dict) or set(data) - {"message", "link", "linkText"}:
+        raise ValueError("disclaimer.json must contain only message, link and linkText")
+    for key, value in data.items():
+        if not isinstance(value, str) or len(value) > 4096 or any(ord(c) < 32 for c in value):
+            raise ValueError(f"Invalid disclaimer {key}")
+    data = {key: value.strip() for key, value in data.items() if value.strip()}
+    if "link" in data:
+        url = urlsplit(data["link"])
+        if (url.scheme.lower() != "https" or not url.hostname or url.username is not None
+                or url.password is not None or any(c.isspace() or c == chr(92) for c in data["link"])):
+            raise ValueError("Disclaimer link must be an absolute HTTPS URL without credentials")
+        # Access port to reject malformed URLs before packaging.
+        _ = url.port
+    elif "linkText" in data:
+        raise ValueError("Disclaimer linkText requires a link")
+    return "const RightToReplyDisclaimer = Object.freeze(" + json.dumps(data, ensure_ascii=True) + ");\n"
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--base-url", default="https://raw.githubusercontent.com",
@@ -35,6 +57,7 @@ def main():
     if not re.fullmatch(r"https://[a-zA-Z0-9.-]+", origin):
         parser.error("--base-url must be a plain HTTPS origin without a path or credentials")
     assets = {name: (EXTENSION / name).read_text(encoding="utf-8") for name in ASSETS}
+    assets["disclaimer.js"] = disclaimer_script(EXTENSION / "disclaimer.json")
     assets["sources.js"] = assets["sources.js"].replace(
         "'https://raw.githubusercontent.com/'", json.dumps(origin + "/"), 1)
     icons = {str(size): f"icon-{size}.png" for size in ICON_SIZES}
@@ -59,7 +82,7 @@ def main():
             "action": {"default_popup": "settings.html", "default_icon": icons},
             "content_scripts": [{
                 "matches": ["http://*/*", "https://*/*"],
-                "js": ["article-reply.js", "feed.js", "content.js"],
+                "js": ["article-reply.js", "feed.js", "disclaimer.js", "content.js"],
                 "css": ["content.css"],
                 "run_at": "document_idle",
             }],

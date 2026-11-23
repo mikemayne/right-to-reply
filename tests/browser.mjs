@@ -21,6 +21,8 @@ manifest.key = der.toString('base64');
 const id = createHash('sha256').update(der).digest('hex').slice(0, 32)
   .replace(/[0-9a-f]/g, digit => String.fromCharCode(97 + parseInt(digit, 16)));
 writeFileSync(manifestPath, JSON.stringify(manifest));
+const testDisclaimer = process.env.RIGHT_TO_REPLY_TEST_DISCLAIMER === '1';
+if (testDisclaimer) writeFileSync(join(extension, 'disclaimer.js'), 'const RightToReplyDisclaimer = Object.freeze(' + JSON.stringify({message:'Owner notice <b>plain text</b>',link:'https://example.org/notice',linkText:'Further information'}) + ');\n');
 if (!process.env.RIGHT_TO_REPLY_LIVE) {
   // Exercise the actual background loader with deterministic network replies.
   const fixture = {
@@ -80,7 +82,10 @@ try {
       const byId = new Map(nodes.map(node => [node.nodeId, node]));
       const descendants = [dialog];
       for (const node of descendants) {
-        assert.notEqual(node.role.value, 'link');
+        if (node.role.value === 'link') {
+          assert.equal(testDisclaimer, true, 'only the owner disclaimer may supply a link');
+          assert.equal(node.name?.value, 'Further information');
+        }
         for (const id of node.childIds ?? []) descendants.push(byId.get(id));
       }
       return descendants.map(node => node.name?.value).join(' ');
@@ -95,6 +100,11 @@ try {
     assert.match(names, /Independent\s+browser\s+extension/i);
     assert.match(names, /Not supplied by this publication/);
     assert.doesNotMatch(names, /Example Party|Excepteur sint occaecat/);
+    if (testDisclaimer) {
+      assert.match(names, /Owner notice <b>plain text<\/b>/);
+      assert.match(names, /Further information/);
+      await page.keyboard.press('Tab'); // optional owner link precedes the replies
+    }
     await page.keyboard.press('Tab');
     await page.keyboard.press('Enter');
     for (let i = 0; i < 100; i++) {
