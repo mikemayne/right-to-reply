@@ -55,16 +55,29 @@ try {
   assert.equal(await mark.evaluate(node => node.style.getPropertyValue('--check-policy-color')), '#000000');
   assert.equal(await page.locator('nav [data-check-policy-mark],#negative [data-check-policy-mark]').count(), 0);
   await mark.press('Enter');
-  const dialog = page.getByRole('dialog');
-  await dialog.waitFor();
-  assert.match(await dialog.innerText(), /Lorem ipsum dolor sit amet/);
-  assert.match(await dialog.innerText(), /Consectetur adipiscing elit/);
-  assert.equal(await dialog.locator('a').count(), 0);
+  // Use the browser accessibility tree because page JavaScript cannot inspect the closed shadow.
+  const cdp = await context.newCDPSession(page);
+  const inspectDialog = async () => {
+    const { nodes } = await cdp.send('Accessibility.getFullAXTree');
+    const dialog = nodes.find(node => node.role.value === 'dialog');
+    assert.ok(dialog);
+    const byId = new Map(nodes.map(node => [node.nodeId, node]));
+    const descendants = [dialog];
+    for (const node of descendants) {
+      assert.notEqual(node.role.value, 'link');
+      for (const id of node.childIds ?? []) descendants.push(byId.get(id));
+    }
+    const names = descendants.map(node => node.name?.value).join(' ');
+    assert.match(names, /Lorem ipsum dolor sit amet/);
+    assert.match(names, /Consectetur adipiscing elit/);
+  };
+  await inspectDialog();
+  assert.equal(await page.evaluate(() => document.body.lastElementChild.shadowRoot), null);
   await page.keyboard.press('Escape');
   await page.locator('#linked a').tap();
   assert.equal(new URL(page.url()).hash, '#match');
   await page.locator('#linked [data-check-policy-control]').press('Enter');
-  await dialog.waitFor();
+  await inspectDialog();
   await settings.evaluate(() => chrome.storage.local.set({ enabled: false }));
   await mark.waitFor({ state: 'detached' });
   console.log('External response displayed with a working popup and native article link.');

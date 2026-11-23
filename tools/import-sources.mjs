@@ -1,9 +1,27 @@
-import { readFile, writeFile } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import feed from '../extension/feed.js';
 
 const sources = JSON.parse(await readFile('data/sources.json', 'utf8'));
 if (!Array.isArray(sources) || sources.length > 100) throw new Error('Invalid source directory');
 const parties = [];
+let remainingBytes = 32 * 1024 * 1024;
+
+// Bound decompressed bytes before decoding or parsing repository-controlled data.
+async function readLimited(response, limit) {
+  if (!response.ok || !response.body) throw new Error('Source download failed');
+  const chunks = [];
+  let bytes = 0;
+  for await (const chunk of response.body) {
+    bytes += chunk.byteLength;
+    remainingBytes -= chunk.byteLength;
+    if (bytes > limit || remainingBytes < 0) throw new Error('Source download exceeds size limit');
+    chunks.push(chunk);
+  }
+  return new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks));
+}
 for (const source of sources) {
   if (!source || Object.keys(source).length !== 2 ||
       !/^[a-z0-9-]+\/[a-z0-9][a-z0-9_.-]*$/i.test(source.repository) ||
@@ -14,14 +32,26 @@ for (const source of sources) {
     if (!response.ok) throw new Error('Cannot read ' + source.repository + '/' + name);
     return response;
   }
-  const treeUrl = 'https://api.github.com/repos/' + source.repository + '/git/trees/' + source.commit + '?recursive=1';
-  const listing = await fetch(treeUrl, { redirect: 'error', signal: AbortSignal.timeout(15000) });
-  if (!listing.ok) throw new Error('Cannot list ' + source.repository);
-  const tree = await listing.json();
-  if (tree.truncated) throw new Error('Incomplete source tree for ' + source.repository);
-  const files = tree.tree.filter(item => item.path.startsWith('responses/'));
+  // Fetch tree metadata over public Git transport, without checking out contributor files.
+  const directory = await mkdtemp(join(tmpdir(), 'reply-tree-'));
+  let files;
+  try {
+    const git = (...args) => execFileSync('git', args, {
+      cwd: directory, encoding: 'utf8', timeout: 60000, maxBuffer: 2 * 1024 * 1024,
+      env: { ...process.env, GIT_TERMINAL_PROMPT: '0' }
+    });
+    git('init', '--bare', '--quiet');
+    git('-c', 'credential.helper=', 'fetch', '--quiet', '--no-tags', '--depth=1', '--filter=blob:none',
+      'https://github.com/' + source.repository + '.git', source.commit);
+    if (git('rev-parse', 'FETCH_HEAD').trim() !== source.commit) throw new Error('Unexpected source revision');
+    files = git('ls-tree', '-r', '-z', source.commit, '--', 'responses/').split('\0').filter(Boolean).map(row => ({
+      mode: row.slice(0, 6), path: row.slice(row.indexOf('\t') + 1)
+    }));
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
   if (files.length > 100) throw new Error('Too many response files');
-  const [party, identifiers] = await Promise.all(['party.json', 'identifiers.json'].map(async name => (await load(name)).json()));
+  const [party, identifiers] = await Promise.all(['party.json', 'identifiers.json'].map(async name => JSON.parse(await readLimited(await load(name), 512 * 1024))));
   if (Object.keys(party).sort().join(',') !== 'color,id,name') throw new Error('Invalid party.json metadata');
   if (!Array.isArray(identifiers) || !identifiers.includes(party.name)) throw new Error('Include the party name in identifiers.json');
   const responses = [];
@@ -29,7 +59,7 @@ for (const source of sources) {
     const match = /^responses\/([^/]+)\.md$/u.exec(file.path);
     if (!match || file.mode !== '100644') throw new Error('Expected an ordinary Markdown response file: ' + file.path);
     const keyword = match[1];
-    const body = await (await load('responses/' + encodeURIComponent(keyword + '.md'))).text();
+    const body = await readLimited(await load('responses/' + encodeURIComponent(keyword + '.md')), 8192);
     const lines = body.replace(/\r\n/g, '\n').trimEnd().split('\n');
     if (lines.length !== 3 || lines[1] !== '') throw new Error('Expected two single-line paragraphs in ' + file.path);
     responses.push({ keyword, response: lines[0], description: lines[2] });

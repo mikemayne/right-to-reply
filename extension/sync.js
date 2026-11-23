@@ -40,7 +40,7 @@ if (typeof module === 'object') {
       credentials: 'omit', referrerPolicy: 'no-referrer', cache: 'no-cache',
       signal: AbortSignal.timeout(10000)
     });
-    if (!response.ok || !['github.com', 'release-assets.githubusercontent.com', 'objects.githubusercontent.com']
+    if (!response.ok || new URL(response.url).protocol !== 'https:' || !['github.com', 'release-assets.githubusercontent.com', 'objects.githubusercontent.com']
       .includes(new URL(response.url).hostname)) throw new Error('Approved release unavailable.');
     const reader = response.body.getReader();
     let size = 0;
@@ -60,7 +60,7 @@ if (typeof module === 'object') {
     }
   });
   api.runtime.onMessage.addListener((request, sender, respond) => {
-    if (request?.type !== 'refresh-responses') return;
+    if (sender.id !== api.runtime.id || request?.type !== 'refresh-responses') return;
     const force = request.force === true && sender.url === api.runtime.getURL('settings.html');
     sync(force).then(respond, () => respond({ ok: false, state: 'unavailable' }));
     return true;
