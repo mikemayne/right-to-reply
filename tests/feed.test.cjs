@@ -69,3 +69,17 @@ test('keyword variants preserve offsets and whole-word boundaries', () => {
     }
   }
 });
+
+test('identifiers support spelling variants and article-wide first and last names', () => {
+  const data = structuredClone(sample);
+  data.parties[0].identifiers = ['Example Party', 'Alex Robin Exampleton', 'Jamie Smith-Jones'];
+  const matcher = feed.matcher(feed.validate(data), reply);
+  for (const blocks of [
+    ['exampleParty'], ['EXAMPLE_PARTY'], ['AlexRobinExampleton'], ['Alex-Robin-Exampleton'],
+    ['Exampleton spoke.', 'Later Alex replied.'], ['SmithJones said so.', 'Jamie agreed.']
+  ]) assert.equal(matcher.identify(blocks).size, 1);
+  for (const blocks of [['Alex alone'], ['Exampleton alone'], ['Alexandra Exampleton'],
+    ['Alex and Smith-Jones'], ['Example yesterday', 'Party today']]) {
+    assert.equal(matcher.identify(blocks).size, 0);
+  }
+});
