@@ -46,7 +46,7 @@ GitHub raw files are the default origin. The browser respects HTTP caching and b
 
 ## Website library
 
-The same build generates `dist/website/right-to-reply.mjs`. Host this module from your site and call `createScanner(approvedData)({ headline, blocks })`. It returns participating parties and matches for the headline and each supplied block. Match offsets are UTF-16 indices. Render response and description as text.
+The same build generates `dist/website/right-to-reply.mjs`. Host this module from your site and call `createScanner(approvedData)({ headline, blocks })`. It returns participating parties and matches for the headline and each supplied block. Match offsets are UTF-16 indices. Render responses and descriptions as text. Use neutral styling for all matches and short responses; reveal the party name and description only when the reader expands the short response.
 
 Run `node tools/validate.cjs` and `node --test tests/feed.test.cjs` to validate the data and exercise the matcher and refresh logic. Run `python tools/package.py`, install Playwright and its Chromium browser, then run `node tests/browser.mjs` for a deterministic extension integration test. Set `RIGHT_TO_REPLY_LIVE=1` to exercise the real test repository instead.
 
@@ -54,4 +54,4 @@ Identifiers accept joined, spaced and hyphenated spellings, but the complete app
 
 Each semantic article (including individual social-media posts where identifiable) is scanned independently. Navigation, hidden content and unrelated articles do not supply the party mention. On pages without semantic article markup the extension uses the main content area, or the body as a fallback. Dynamic changes rescan affected article roots instead of resetting the whole page.
 
-Each party chooses one six-digit hex underline colour in its party.json. Shared matches get equal-width colour segments, one per participating party. Segment order and popup order are shuffled separately for each match. Forced-colour mode uses the reader's system underline colour.
+All parties use the same neutral dotted underline, following the site's text colour for contrast against its background. Short responses use the popup's foreground colour and are shuffled for each match. Readers choose a statement on its merits; selecting it reveals the party name and extended description. Forced-colour mode uses the reader's system underline colour. Existing party colour metadata is retained for compatibility but does not style the underline or short response.

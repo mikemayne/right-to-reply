@@ -55,9 +55,7 @@ const RightToReplyMatcher = (() => {
   function create(parties) {
     const names = keywordNode();
     const keywords = keywordNode();
-    const colors = new Map();
     for (const party of parties) {
-      colors.set(party.id, party.color);
       for (const name of new Set([party.name, ...(party.identifiers ?? [])])) {
         addKeyword(names, name, party.id);
       }
@@ -100,10 +98,7 @@ const RightToReplyMatcher = (() => {
       }
       return groups.map(({ start, end, responses }) => {
         const candidates = shuffled(responses);
-        const partyIds = new Set(candidates.map(response => response.partyId));
-        const matchedColors = shuffled(partyIds).map(id => colors.get(id));
-        return { start, end, candidates, colors: matchedColors,
-          color: matchedColors.length === 1 ? matchedColors[0] : undefined };
+        return { start, end, candidates };
       });
     }
 

@@ -61,7 +61,8 @@ try {
   await page.goto('http://127.0.0.1:' + server.address().port + '/');
   const mark = page.locator('#match [data-right-to-reply-mark]');
   await mark.waitFor();
-  assert.equal(await mark.evaluate(node => node.style.getPropertyValue('--right-to-reply-color')), '#000000');
+  assert.equal(await mark.evaluate(node => getComputedStyle(node).textDecorationColor), await mark.evaluate(node => getComputedStyle(node).color));
+  assert.equal(await mark.evaluate(node => node.hasAttribute('data-reply-segments')), false);
   assert.equal(await page.locator('nav [data-right-to-reply-mark],#negative [data-right-to-reply-mark]').count(), 0);
   if (!process.env.RIGHT_TO_REPLY_LIVE) {
     const worker = context.serviceWorkers()[0];
@@ -72,22 +73,34 @@ try {
   // Use the browser accessibility tree because page JavaScript cannot inspect the closed shadow.
   const cdp = await context.newCDPSession(page);
   const inspectDialog = async () => {
-    let nodes;
+    const dialogNames = async () => {
+      const { nodes } = await cdp.send('Accessibility.getFullAXTree');
+      const dialog = nodes.find(node => node.role.value === 'dialog');
+      if (!dialog) return '';
+      const byId = new Map(nodes.map(node => [node.nodeId, node]));
+      const descendants = [dialog];
+      for (const node of descendants) {
+        assert.notEqual(node.role.value, 'link');
+        for (const id of node.childIds ?? []) descendants.push(byId.get(id));
+      }
+      return descendants.map(node => node.name?.value).join(' ');
+    };
+    let names = '';
     for (let i = 0; i < 100; i++) {
-      ({ nodes } = await cdp.send('Accessibility.getFullAXTree'));
-      if (nodes.some(node => node.name?.value?.includes('Excepteur sint occaecat'))) break;
+      names = await dialogNames();
+      if (names.includes('Duis aute irure dolor in reprehenderit')) break;
       await new Promise(resolve => setTimeout(resolve, 50));
     }
-    const dialog = nodes.find(node => node.role.value === 'dialog');
-    assert.ok(dialog);
-    const byId = new Map(nodes.map(node => [node.nodeId, node]));
-    const descendants = [dialog];
-    for (const node of descendants) {
-      assert.notEqual(node.role.value, 'link');
-      for (const id of node.childIds ?? []) descendants.push(byId.get(id));
-    }
-    const names = descendants.map(node => node.name?.value).join(' ');
     assert.match(names, /Duis aute irure dolor in reprehenderit/);
+    assert.doesNotMatch(names, /Example Party|Excepteur sint occaecat/);
+    await page.keyboard.press('Tab');
+    await page.keyboard.press('Enter');
+    for (let i = 0; i < 100; i++) {
+      names = await dialogNames();
+      if (names.includes('Excepteur sint occaecat')) break;
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    assert.match(names, /Example Party/);
     assert.match(names, /Excepteur sint occaecat cupidatat non proident/);
   };
   await inspectDialog();

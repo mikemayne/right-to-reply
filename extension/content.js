@@ -57,14 +57,6 @@
         const target = from ? node.splitText(from) : node;
         const span = document.createElement('span');
         span.dataset.rightToReplyMark = '';
-        if (match.color) span.style.setProperty('--right-to-reply-color', match.color);
-        else {
-          const stops = match.colors.map((color, index) =>
-            color + ' ' + (100 * index / match.colors.length) + '% ' +
-            (100 * (index + 1) / match.colors.length) + '%');
-          span.dataset.replySegments = '';
-          span.style.setProperty('--reply-segments', 'linear-gradient(to right,' + stops.join(',') + ')');
-        }
         groups.set(span, group);
         if (i === 0 && !links.length) {
           group.anchor = span;
@@ -83,7 +75,6 @@
         button.textContent = 'i';
         button.setAttribute('aria-label', label);
         button.setAttribute('aria-haspopup', 'dialog');
-        if (match.color) button.style.setProperty('--right-to-reply-color', match.color);
         group.anchor = button;
         groups.set(button, group);
         links.at(-1).after(button);
@@ -234,7 +225,7 @@
   host.style.cssText = 'all:initial!important;position:fixed!important;z-index:2147483647!important;top:0!important;left:0!important';
   const shadow = host.attachShadow({ mode: 'closed' });
   const style = document.createElement('style');
-  style.textContent = 'section{box-sizing:border-box;width:min(360px,calc(100vw - 16px));max-height:min(65vh,470px);overflow:auto;padding:14px;border:1px solid GrayText;border-radius:8px;background:Canvas;color:CanvasText;color-scheme:light dark;box-shadow:0 4px 20px #0004;font:14px/1.45 system-ui} h2{font-size:1.1em;margin:0 32px 8px 0} p{margin:5px 0} article+article{border-top:1px solid GrayText;margin-top:10px;padding-top:10px} button{float:right;font:inherit} a{color:LinkText} blockquote{margin:6px 0}';
+  style.textContent = 'section{box-sizing:border-box;width:min(360px,calc(100vw - 16px));max-height:min(65vh,470px);overflow:auto;padding:14px;border:1px solid GrayText;border-radius:8px;background:Canvas;color:CanvasText;color-scheme:light dark;box-shadow:0 4px 20px #0004;font:14px/1.45 system-ui} h2{font-size:1.1em;margin:0 32px 8px 0} p{margin:5px 0} article+article{border-top:1px solid GrayText;margin-top:10px;padding-top:10px} button{float:right;font:inherit} summary{cursor:pointer;color:CanvasText;font-weight:600;overflow-wrap:anywhere;padding:4px 0} summary:hover{text-decoration:underline} summary:focus-visible{outline:2px solid currentColor;outline-offset:2px} details strong{display:block;margin-top:6px} details p{overflow-wrap:anywhere}';
   const popup = document.createElement('section');
   popup.setAttribute('role', 'dialog');
   popup.setAttribute('aria-labelledby', 'right-to-reply-title');
@@ -292,7 +283,6 @@
     add('h2', 'Right to Reply').id = 'right-to-reply-title';
     for (const policy of group.candidates) {
       const card = add('article', '');
-      add('strong', policy.partyName, card);
       const status = add('p', 'Loading response…', card);
       status.setAttribute('role', 'status');
       api.runtime.sendMessage({ type: 'load-reply', repository: policy.repository, keyword: policy.keyword })
@@ -302,8 +292,12 @@
             status.textContent = 'Response currently unavailable.';
           } else {
             status.remove();
-            add('p', result.response, card);
-            add('p', result.description, card);
+            const details = add('details', '', card);
+            add('summary', result.response, details);
+            add('strong', policy.partyName, details);
+            add('p', result.description, details);
+            details.addEventListener('toggle', () => { if (active === anchor) position(); });
+            details.addEventListener('click', () => { pinned = true; clearTimeout(leaveTimer); });
           }
           position();
         }, () => {
