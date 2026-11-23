@@ -22,7 +22,9 @@ To exercise the extension, run `python -m http.server 8000` from the repository 
 
 Every party receives the same invitation and rules at the same time. Participation is opt-in. An authorised party representative proposes additions, edits and removals in a public pull request. The PR records evidence, links, discussion and review decisions. The distributed data contains the reviewed wording only. Parties have no direct publishing access.
 
-Edit `data/responses.json` in a pull request. The version-1 format has a `parties` array, with `id`, `name`, `color` (six-digit hex), and `responses` per party. Each response has a `keyword`, a single-line `response` of up to 160 characters, and a `description` of up to 255 characters. Published content is plain text. The validator rejects unexpected fields, markup and URL forms. Put evidence links in the PR. Eligibility comes from the submitted party name.
+Each participating party maintains its own public GitHub repository. Its root contains two JSON files. `identifiers.json` is an array such as `["Example Party", "Alex Example"]`. Include the party name, approved senior members and any approved aliases. A mention anywhere in the same article qualifies that party for keyword matching. `responses.json` is an object with `id`, `name`, `color` and a `responses` array. Each response contains a `keyword`, a single-line `response` (160 characters maximum) and a `description` (255 characters maximum).
+
+To enrol or update a party, submit a public PR changing `data/sources.json`. Each entry contains `repository` (owner/repo) and `commit` (the full reviewed Git commit SHA). Review both files at that revision. The release workflow combines those approved revisions for download. Parties edit only their own repository.
 
 Reviewers verify authority and wording, then record the decision in the public PR. Merging the reviewed feed to protected `main` starts its validation and data-only release. The extension reads only the `responses.json` asset from the latest release of this repository. It retains the last valid response set if an update fails. Feed edits do not require a new extension build.
 
