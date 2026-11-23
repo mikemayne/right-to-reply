@@ -24,6 +24,15 @@
   cursor: help;
   vertical-align: middle;
 }
+@media (forced-colors: none) {
+  [data-check-policy-mark][data-reply-segments] {
+    text-decoration: none !important;
+    background-image: var(--reply-segments) !important;
+    background-size: 100% 2px !important;
+    background-position: left bottom !important;
+    background-repeat: no-repeat !important;
+  }
+}
 @media (forced-colors: active) {
   [data-check-policy-mark] { text-decoration-color: LinkText !important; }
 }

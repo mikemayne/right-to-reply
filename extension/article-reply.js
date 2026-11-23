@@ -43,6 +43,15 @@ const CheckPolicyReply = (() => {
     return found;
   }
 
+  function shuffled(items) {
+    const result = [...items];
+    for (let i = result.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [result[i], result[j]] = [result[j], result[i]];
+    }
+    return result;
+  }
+
   function create(catalog, registry) {
     const names = keywordNode();
     const nameParts = keywordNode();
@@ -104,9 +113,10 @@ const CheckPolicyReply = (() => {
         }
       }
       return groups.map(({ start, end, policies }) => {
-        const candidates = [...policies.values()];
+        const candidates = shuffled(policies.values());
         const parties = new Set(candidates.map(policy => policy.partyId));
-        return { start, end, candidates, color: parties.size === 1 ? catalog.brands?.[candidates[0].partyId]?.color : undefined };
+        const colors = shuffled(parties).map(id => catalog.brands?.[id]?.color ?? 'currentColor');
+        return { start, end, candidates, colors, color: colors.length === 1 ? colors[0] : undefined };
       });
     }
 
