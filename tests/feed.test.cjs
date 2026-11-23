@@ -3,7 +3,7 @@ const test = require('node:test');
 const feed = require('../extension/feed.js');
 const reply = require('../extension/article-reply.js');
 const { createSync } = require('../extension/sync.js');
-require('../extension/demo-data.js');
+require('./sample-data.js');
 const sample = globalThis.RightToReplyDemo;
 const empty = { schemaVersion: 1, parties: [] };
 

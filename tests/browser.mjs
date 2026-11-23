@@ -37,29 +37,39 @@ try {
   });
   const settings = context.pages()[0];
   await settings.goto('chrome-extension://' + id + '/settings.html');
+  let releaseReady = false;
+  if (process.env.RIGHT_TO_REPLY_STAGED_RELEASE) {
+    await context.route('https://github.com/mikemayne/right-to-reply/releases/latest/download/responses.json',
+      route => releaseReady ? route.fulfill({ path: join(root, 'data/responses.json'), contentType: 'application/json' }) : route.fulfill({ json: { schemaVersion: 1, parties: [] } }));
+  }
   const page = await context.newPage();
   await page.goto('http://127.0.0.1:' + server.address().port + '/');
-  if (process.env.RIGHT_TO_REPLY_LIVE) {
-    await settings.waitForFunction(async () => {
-      const { snapshot } = await chrome.storage.local.get('snapshot');
-      return snapshot?.checkedAt > 0 && snapshot.data.parties.length === 0;
-    });
-  }
   const mark = page.locator('#match [data-check-policy-mark]');
-  assert.equal(await mark.count(), 0);
-  await settings.evaluate(() => chrome.storage.local.set({ demo: true }));
+  if (process.env.RIGHT_TO_REPLY_STAGED_RELEASE) {
+    await settings.waitForFunction(async () => (await chrome.storage.local.get('snapshot')).snapshot?.data.parties.length === 0);
+    assert.equal(await mark.count(), 0);
+    releaseReady = true;
+    await settings.locator('#refresh').click();
+  }
   await mark.waitFor();
-  assert.equal(await mark.evaluate(node => node.style.getPropertyValue('--check-policy-color')), '#3468ac');
+  assert.equal(await mark.evaluate(node => node.style.getPropertyValue('--check-policy-color')), '#000000');
   assert.equal(await page.locator('nav [data-check-policy-mark],#negative [data-check-policy-mark]').count(), 0);
   await mark.press('Enter');
   // Use the browser accessibility tree because page JavaScript cannot inspect the closed shadow.
   const cdp = await context.newCDPSession(page);
   const inspectDialog = async () => {
     const { nodes } = await cdp.send('Accessibility.getFullAXTree');
-    assert.ok(nodes.some(node => node.role.value === 'dialog'));
-    const names = nodes.map(node => node.name?.value).join(' ');
-    assert.match(names, /Your one line response to the keyword goes here/);
-    assert.match(names, /An extended description/);
+    const dialog = nodes.find(node => node.role.value === 'dialog');
+    assert.ok(dialog);
+    const byId = new Map(nodes.map(node => [node.nodeId, node]));
+    const descendants = [dialog];
+    for (const node of descendants) {
+      assert.notEqual(node.role.value, 'link');
+      for (const id of node.childIds ?? []) descendants.push(byId.get(id));
+    }
+    const names = descendants.map(node => node.name?.value).join(' ');
+    assert.match(names, /Lorem ipsum dolor sit amet/);
+    assert.match(names, /Consectetur adipiscing elit/);
   };
   await inspectDialog();
   assert.equal(await page.evaluate(() => document.body.lastElementChild.shadowRoot), null);
@@ -68,9 +78,9 @@ try {
   assert.equal(new URL(page.url()).hash, '#match');
   await page.locator('#linked [data-check-policy-control]').press('Enter');
   await inspectDialog();
-  await settings.evaluate(() => chrome.storage.local.set({ demo: false }));
+  await settings.evaluate(() => chrome.storage.local.set({ enabled: false }));
   await mark.waitFor({ state: 'detached' });
-  console.log('Browser demo passed, including popup, native link, and empty approved feed.');
+  console.log('External response displayed with a working popup and native article link.');
 } finally {
   await context?.close();
   server.close();
