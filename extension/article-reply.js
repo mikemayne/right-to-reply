@@ -6,27 +6,6 @@ const CheckPolicyReply = (() => {
     start: match.index, end: match.index + match[0].length
   }));
 
-  function add(index, phrase, value) {
-    const words = tokenize(phrase).map(token => token.key);
-    if (!words.length) return;
-    const entries = index.get(words[0]) ?? [];
-    entries.push({ words, value });
-    index.set(words[0], entries);
-  }
-
-  function hits(text, index) {
-    const words = tokenize(text);
-    const found = [];
-    for (const [offset, first] of words.entries()) {
-      for (const { words: phrase, value } of index.get(first.key) ?? []) {
-        if (!phrase.every((key, i) => words[offset + i]?.key === key &&
-          (!i || /^[\s\p{Pd}'â€™]+$/u.test(text.slice(words[offset + i - 1].end, words[offset + i].start))))) continue;
-        found.push({ start: first.start, end: words[offset + phrase.length - 1].end, value });
-      }
-    }
-    return found.sort((a, b) => a.start - b.start || b.end - a.end);
-  }
-
   function keywordNode() {
     return { children: new Map(), policies: new Set() };
   }
@@ -65,16 +44,26 @@ const CheckPolicyReply = (() => {
   }
 
   function create(catalog, registry) {
-    const names = new Map();
+    const names = keywordNode();
+    const nameParts = keywordNode();
+    const splitNames = [];
     const keywords = keywordNode();
     const parties = new Map(catalog.parties.map(party => [party.id, party]));
     const policies = new Map(catalog.policies.map(policy => [policy.id, policy]));
     for (const entry of registry) {
       const party = parties.get(entry.partyId);
       if (!party || entry.active !== true) continue;
-      for (const name of [party.name, ...entry.partyAliases,
-        ...entry.representatives.flatMap(person => [person.name, ...person.aliases])]) {
-        add(names, name, party.id);
+      for (const name of new Set([party.name, ...entry.partyAliases,
+        ...entry.representatives.flatMap(person => [person.name, ...person.aliases])])) {
+        addKeyword(names, name, party.id);
+        const parts = name.trim().split(/\s+/u);
+        if (name.toLowerCase() !== party.name.toLowerCase() && parts.length >= 2) {
+          const first = parts[0];
+          const last = parts.at(-1);
+          addKeyword(nameParts, first, first);
+          addKeyword(nameParts, last, last);
+          splitNames.push({ first, last, partyId: party.id });
+        }
       }
       for (const id of entry.policyIds) {
         const policy = policies.get(id);
@@ -85,13 +74,18 @@ const CheckPolicyReply = (() => {
 
     function identify(blocks) {
       const eligible = new Set();
+      const seenParts = new Set();
       for (const text of blocks) {
-        const mentions = hits(text, names);
+        for (const hit of keywordHits(text, nameParts)) seenParts.add(hit.value);
+        const mentions = keywordHits(text, names);
         for (const match of mentions) {
           if (mentions.some(other => other.value !== match.value && other.start <= match.start &&
             other.end >= match.end)) continue;
           eligible.add(match.value);
         }
+      }
+      for (const { first, last, partyId } of splitNames) {
+        if (seenParts.has(first) && seenParts.has(last)) eligible.add(partyId);
       }
       return eligible;
     }
