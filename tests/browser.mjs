@@ -92,6 +92,8 @@ try {
       await new Promise(resolve => setTimeout(resolve, 50));
     }
     assert.match(names, /Duis aute irure dolor in reprehenderit/);
+    assert.match(names, /Independent\s+browser\s+extension/i);
+    assert.match(names, /Not supplied by this publication/);
     assert.doesNotMatch(names, /Example Party|Excepteur sint occaecat/);
     await page.keyboard.press('Tab');
     await page.keyboard.press('Enter');
