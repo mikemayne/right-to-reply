@@ -22,10 +22,10 @@ const id = createHash('sha256').update(der).digest('hex').slice(0, 32)
   .replace(/[0-9a-f]/g, digit => String.fromCharCode(97 + parseInt(digit, 16)));
 writeFileSync(manifestPath, JSON.stringify(manifest));
 const testDisclaimer = process.env.RIGHT_TO_REPLY_TEST_DISCLAIMER === '1';
-if (testDisclaimer) writeFileSync(join(extension, 'disclaimer.js'), 'const RightToReplyDisclaimer = Object.freeze(' + JSON.stringify({message:'Owner notice <b>plain text</b>',link:'https://example.org/notice',linkText:'Further information'}) + ');\n');
 if (!process.env.RIGHT_TO_REPLY_LIVE) {
   // Exercise the actual background loader with deterministic network replies.
   const fixture = {
+    'mikemayne/right-to-reply/main/data/disclaimer.json': JSON.stringify(testDisclaimer ? {message:'Owner notice <b>plain text</b>',link:'https://example.org/notice',linkText:'Further information'} : {}),
     'mikemayne/right-to-reply/main/data/sources.json': JSON.stringify([
       { repository: 'owner/broken' }, { repository: 'owner/example-party' }
     ]),

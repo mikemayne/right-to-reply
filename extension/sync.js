@@ -77,7 +77,13 @@ if (typeof module === 'object') {
 } else {
   if (typeof importScripts === 'function') importScripts('feed.js', 'sources.js');
   const api = globalThis.browser ?? globalThis.chrome;
-  const sync = createSync(api.storage.local, () => RightToReplySources.load(undefined, RightToReplyFeed));
+  const sync = createSync(api.storage.local, async () => {
+    const [{ data, failed }, disclaimer] = await Promise.all([
+      RightToReplySources.load(undefined, RightToReplyFeed),
+      RightToReplySources.loadDisclaimer(RightToReplyFeed)
+    ]);
+    return { data: { ...data, disclaimer }, failed };
+  });
   const loadReply = createReplyLoader(api.storage.local, (repository, keyword) =>
     RightToReplySources.loadReply(repository, keyword, RightToReplyFeed));
   api.runtime.onMessage.addListener((request, sender, respond) => {

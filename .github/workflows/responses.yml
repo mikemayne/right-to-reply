@@ -3,7 +3,7 @@ on:
   pull_request:
   push:
     branches: [main]
-    paths: [data/sources.json]
+    paths: [data/sources.json, data/disclaimer.json]
 permissions:
   contents: read
 jobs:
@@ -16,7 +16,6 @@ jobs:
           persist-credentials: false
       - run: node tools/validate.cjs
       - run: node --test tests/feed.test.cjs
-      - run: python -m unittest discover -s tests -p 'test_disclaimer.py'
   browser:
     runs-on: ubuntu-latest
     timeout-minutes: 10

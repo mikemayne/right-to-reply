@@ -3,6 +3,7 @@ const sources = require('../extension/sources.js');
 const validator = require('../extension/feed.js');
 const directory = JSON.parse(fs.readFileSync('data/sources.json', 'utf8'));
 (async () => {
+  validator.validateDisclaimer(JSON.parse(fs.readFileSync('data/disclaimer.json', 'utf8')));
   const { data, failed } = await sources.load(directory, validator);
   if (failed.length) throw new Error('Invalid or unavailable parties: ' + failed.join(', '));
   // Explicit validation tool checks every published response. The browser does not.
