@@ -44,7 +44,8 @@ const RightToReplyFeed = (() => {
   function validateParty(party) {
     if (!exact(party, ['repository', 'id', 'name', 'color', 'identifiers', 'keywords']) ||
         !repository(party.repository) || !Array.isArray(party.keywords) ||
-        party.keywords.length > 100 || !party.keywords.every(keyword) ||
+        new TextEncoder().encode(JSON.stringify(party.keywords)).length > 256 * 1024 ||
+        !party.keywords.every(keyword) ||
         new Set(party.keywords.map(k => k.normalize('NFKC').toLowerCase())).size !== party.keywords.length ||
         !Array.isArray(party.identifiers) || !party.identifiers.includes(party.name)) {
       throw new Error('Invalid party metadata');

@@ -3,11 +3,27 @@
 const RightToReplySources = (() => {
   const root = 'https://raw.githubusercontent.com/';
   const directoryUrl = root + 'mikemayne/right-to-reply/main/data/sources.json';
+  const backoff = new Map();
 
   async function read(url, limit, request) {
+    // Honour browser/CDN HTTP caching and throttle only the affected repository.
+    const scope = url.slice(root.length).split('/').slice(0, 2).join('/').toLowerCase();
+    if ((backoff.get(scope) ?? 0) > Date.now()) throw new Error('Source temporarily rate limited');
     const response = await request(url, { credentials: 'omit', redirect: 'error',
-      referrerPolicy: 'no-referrer', cache: 'no-cache', signal: AbortSignal.timeout(15000) });
-    if (!response.ok || !response.body) throw new Error('Cannot read ' + url);
+      referrerPolicy: 'no-referrer', cache: 'default', signal: AbortSignal.timeout(15000) });
+    if (response.status === 429 || response.status === 503) {
+      const header = response.headers.get('Retry-After');
+      const seconds = header && /^\d+$/.test(header) ? Number(header) :
+        header ? (Date.parse(header) - Date.now()) / 1000 : NaN;
+      const delay = Number.isFinite(seconds) ? Math.max(1, Math.min(3600, seconds)) : 60;
+      backoff.delete(scope);
+      backoff.set(scope, Date.now() + delay * 1000);
+      if (backoff.size > 256) backoff.delete(backoff.keys().next().value);
+    }
+    if (!response.ok || !response.body) {
+      await response.body?.cancel().catch(() => {});
+      throw new Error('Cannot read ' + url);
+    }
     const reader = response.body.getReader();
     const decoder = new TextDecoder('utf-8', { fatal: true });
     let text = '';
@@ -41,12 +57,17 @@ const RightToReplySources = (() => {
         const { repository } = sources[index];
         try {
           const base = root + repository + '/main/';
-          const [party, identifiers] = await Promise.all([
+          const [party, identifiers, keywords] = await Promise.all([
             read(base + 'party.json', 65536, request).then(JSON.parse),
-            read(base + 'identifiers.json', 256 * 1024, request).then(JSON.parse)
+            read(base + 'identifiers.json', 256 * 1024, request).then(JSON.parse),
+            read(root + repository + '/keyword-index/keywords.json', 256 * 1024, request).then(JSON.parse)
           ]);
-          if (!party || Object.keys(party).sort().join(',') !== 'color,id,keywords,name') throw new Error('Invalid party metadata');
-          results[index] = validator.validateParty({ ...party, repository, identifiers });
+          const fields = party && Object.keys(party).sort().join(',');
+          // Ignore the old manual list during migration; never use it for discovery.
+          if (fields !== 'color,id,name' && fields !== 'color,id,keywords,name') throw new Error('Invalid party metadata');
+          results[index] = validator.validateParty({
+            id: party.id, name: party.name, color: party.color, repository, identifiers, keywords
+          });
         } catch { /* Invalid or unavailable party; leave other parties alone. */ }
       }
     }

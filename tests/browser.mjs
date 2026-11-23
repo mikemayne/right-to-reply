@@ -28,9 +28,10 @@ if (!process.env.RIGHT_TO_REPLY_LIVE) {
       { repository: 'owner/broken' }, { repository: 'owner/example-party' }
     ]),
     'owner/example-party/main/party.json': JSON.stringify({
-      id: 'example-party', name: 'Example Party', color: '#000000', keywords: ['example keyword']
+      id: 'example-party', name: 'Example Party', color: '#000000'
     }),
     'owner/example-party/main/identifiers.json': JSON.stringify(['Example Party']),
+    'owner/example-party/keyword-index/keywords.json': JSON.stringify(['example keyword']),
     'owner/example-party/main/responses/example%20keyword.md':
       'Duis aute irure dolor in reprehenderit.\n\nExcepteur sint occaecat cupidatat non proident.\n'
   };

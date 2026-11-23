@@ -189,10 +189,12 @@ test('metadata loads no response files and isolates malformed or unavailable par
     calls.push(url);
     assert.equal(options.credentials, 'omit');
     assert.equal(options.referrerPolicy, 'no-referrer');
+    assert.equal(options.cache, 'default');
     const files = {
       [directoryUrl]: JSON.stringify(directory),
-      [base + 'party.json']: JSON.stringify({ id: 'example-party', name: 'Example Party', color: '#000000', keywords: ['example keyword'] }),
+      [base + 'party.json']: JSON.stringify({ id: 'example-party', name: 'Example Party', color: '#000000', keywords: ['ignored legacy keyword'] }),
       [base + 'identifiers.json']: JSON.stringify(['Example Party']),
+      ['https://raw.githubusercontent.com/' + repo + '/keyword-index/keywords.json']: JSON.stringify(['example keyword']),
       [base + 'responses/example%20keyword.md']: response + '\n\nExtended description.\n',
       ['https://raw.githubusercontent.com/owner/invalid/main/party.json']: '{}',
       ['https://raw.githubusercontent.com/owner/invalid/main/identifiers.json']: '[]'
@@ -202,7 +204,7 @@ test('metadata loads no response files and isolates malformed or unavailable par
   const result = await sources.load(undefined, feed, request);
   assert.deepEqual(result.failed, ['owner/broken', 'owner/invalid']);
   assert.deepEqual(result.data, metadata);
-  assert.equal(calls.length, 7);
+  assert.equal(calls.length, 10);
   assert.ok(!calls.some(url => url.includes('/responses/')));
   for (const expected of ['Original response.', 'Updated response.']) {
     response = expected;
@@ -227,4 +229,30 @@ test('reply size boundaries apply to both inline and on-demand data', () => {
   for (const body of ['a'.repeat(129) + '\n\nb', 'a\n\n' + 'b'.repeat(256), 'a\n\nhttps://example.com', 'a\n\nb\n\nc']) {
     assert.throws(() => feed.validateReply(body));
   }
+});
+
+
+test('large keyword indices work without a fixed 100-keyword limit', () => {
+  const party = structuredClone(metadata.parties[0]);
+  party.keywords = Array.from({ length: 2000 }, (_, i) => 'keyword ' + i);
+  assert.doesNotThrow(() => feed.validateParty(party));
+  const matcher = feed.matcher({ schemaVersion: 2, parties: [party] }, reply);
+  assert.equal(matcher.find('keyword 1999', matcher.identify(['Example Party']))[0].candidates[0].keyword, 'keyword 1999');
+  party.keywords = Array.from({ length: 4000 }, (_, i) => 'a'.repeat(80) + i);
+  assert.throws(() => feed.validateParty(party));
+});
+
+test('rate limiting backs off the affected repository without blocking others', async () => {
+  const calls = [];
+  const request = async url => {
+    calls.push(url);
+    return url.includes('/limited/') ?
+      new Response('', { status: 429, headers: { 'Retry-After': '60' } }) :
+      new Response('Reply.\n\nDescription.\n');
+  };
+  await assert.rejects(sources.loadReply('owner/limited', 'keyword', feed, request));
+  await assert.rejects(sources.loadReply('owner/limited', 'another keyword', feed, request));
+  assert.equal(calls.length, 1);
+  assert.equal((await sources.loadReply('owner/working', 'keyword', feed, request)).response, 'Reply.');
+  assert.equal(calls.length, 2);
 });
