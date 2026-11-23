@@ -20,16 +20,53 @@ const CheckPolicyReply = (() => {
     for (const [offset, first] of words.entries()) {
       for (const { words: phrase, value } of index.get(first.key) ?? []) {
         if (!phrase.every((key, i) => words[offset + i]?.key === key &&
-          (!i || /^[\s\p{Pd}'’]+$/u.test(text.slice(words[offset + i - 1].end, words[offset + i].start))))) continue;
+          (!i || /^[\s\p{Pd}'â€™]+$/u.test(text.slice(words[offset + i - 1].end, words[offset + i].start))))) continue;
         found.push({ start: first.start, end: words[offset + phrase.length - 1].end, value });
       }
     }
     return found.sort((a, b) => a.start - b.start || b.end - a.end);
   }
 
+  function keywordNode() {
+    return { children: new Map(), policies: new Set() };
+  }
+
+  // Traverse normalized characters but only start and finish on whole source tokens.
+  function addKeyword(root, phrase, policy) {
+    let node = root;
+    for (const token of tokenize(phrase)) {
+      for (const letter of token.key) {
+        if (!node.children.has(letter)) node.children.set(letter, keywordNode());
+        node = node.children.get(letter);
+      }
+    }
+    if (node !== root) node.policies.add(policy);
+  }
+
+  function keywordHits(text, root) {
+    const words = tokenize(text);
+    const found = [];
+    for (let start = 0; start < words.length; start++) {
+      let node = root;
+      for (let end = start; end < words.length; end++) {
+        if (end > start && !/^[\s\p{Pd}_'’/\u00ad\u200b]+$/u.test(
+          text.slice(words[end - 1].end, words[end].start))) break;
+        for (const letter of words[end].key) {
+          node = node.children.get(letter);
+          if (!node) break;
+        }
+        if (!node) break;
+        for (const value of node.policies) {
+          found.push({ start: words[start].start, end: words[end].end, value });
+        }
+      }
+    }
+    return found;
+  }
+
   function create(catalog, registry) {
     const names = new Map();
-    const keywords = new Map();
+    const keywords = keywordNode();
     const parties = new Map(catalog.parties.map(party => [party.id, party]));
     const policies = new Map(catalog.policies.map(policy => [policy.id, policy]));
     for (const entry of registry) {
@@ -42,7 +79,7 @@ const CheckPolicyReply = (() => {
       for (const id of entry.policyIds) {
         const policy = policies.get(id);
         if (policy?.partyId !== party.id) continue;
-        for (const keyword of policy.search) add(keywords, keyword, policy);
+        for (const keyword of policy.search) addKeyword(keywords, keyword, policy);
       }
     }
 
@@ -62,7 +99,7 @@ const CheckPolicyReply = (() => {
     function find(text, eligible) {
       if (!eligible.size) return [];
       const groups = [];
-      for (const match of hits(text, keywords)) {
+      for (const match of keywordHits(text, keywords)) {
         if (!eligible.has(match.value.partyId)) continue;
         const current = groups.at(-1);
         if (current && current.end > match.start) {
