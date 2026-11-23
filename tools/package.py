@@ -6,13 +6,14 @@ from zipfile import ZIP_DEFLATED, ZipFile
 ROOT = Path(__file__).resolve().parents[1]
 DIST = ROOT / "dist"
 EXTENSION = ROOT / "extension"
-ASSETS = ("article-reply.js", "content.css", "content.js", "demo-data.js",
+ASSETS = ("article-reply.js", "content.css", "content.js",
           "feed.js", "settings.html", "settings.js", "sync.js")
 
 
 def package(name, files):
     folder = DIST / name
     folder.mkdir(parents=True, exist_ok=True)
+    (folder / "demo-data.js").unlink(missing_ok=True)
     with ZipFile(DIST / f"right-to-reply-{name}.zip", "w", ZIP_DEFLATED) as archive:
         for filename, data in files.items():
             (folder / filename).write_text(data, encoding="utf-8", newline="\n")
@@ -33,11 +34,16 @@ def main():
                 "https://release-assets.githubusercontent.com/*",
                 "https://objects.githubusercontent.com/*",
             ],
+            "content_security_policy": {"extension_pages": (
+                "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
+                "connect-src https://github.com https://release-assets.githubusercontent.com "
+                "https://objects.githubusercontent.com; object-src 'none'; base-uri 'none'; frame-src 'none'"
+            )},
             "background": {"service_worker": "sync.js"},
             "action": {"default_popup": "settings.html"},
             "content_scripts": [{
                 "matches": ["http://*/*", "https://*/*"],
-                "js": ["article-reply.js", "feed.js", "demo-data.js", "content.js"],
+                "js": ["article-reply.js", "feed.js", "content.js"],
                 "css": ["content.css"],
                 "run_at": "document_idle",
             }],

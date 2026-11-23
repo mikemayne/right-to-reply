@@ -11,7 +11,7 @@
   const controls = new WeakMap();
   const pending = new Set();
   const processed = new WeakSet();
-  let settings = { enabled: false, demo: false };
+  let settings = { enabled: false };
   let matcher;
   let eligibleByRoot = new Map();
   let singleArticle;
@@ -42,6 +42,7 @@
         text += ' ';
         continue;
       }
+      if (text.length + node.length > 10000) return null;
       nodes.push({ node, start: text.length });
       text += node.data;
     }
@@ -235,7 +236,7 @@
 
   const host = document.createElement('div');
   host.style.cssText = 'all:initial!important;position:fixed!important;z-index:2147483647!important;top:0!important;left:0!important';
-  const shadow = host.attachShadow({ mode: 'open' });
+  const shadow = host.attachShadow({ mode: 'closed' });
   const style = document.createElement('style');
   style.textContent = 'section{box-sizing:border-box;width:min(360px,calc(100vw - 16px));max-height:min(65vh,470px);overflow:auto;padding:14px;border:1px solid GrayText;border-radius:8px;background:Canvas;color:CanvasText;color-scheme:light dark;box-shadow:0 4px 20px #0004;font:14px/1.45 system-ui} h2{font-size:1.1em;margin:0 32px 8px 0} p{margin:5px 0} article+article{border-top:1px solid GrayText;margin-top:10px;padding-top:10px} button{float:right;font:inherit} a{color:LinkText} blockquote{margin:6px 0}';
   const popup = document.createElement('section');
@@ -293,7 +294,7 @@
     const button = add('button', 'Close');
     button.type = 'button';
     button.addEventListener('click', () => close(true));
-    add('h2', settings.demo ? 'Right to Reply · fictional demo' : 'Right to Reply').id = 'cp-title';
+    add('h2', 'Right to Reply').id = 'cp-title';
     for (const policy of group.candidates) {
       const card = add('article', '');
       add('strong', policy.partyName, card);
@@ -306,6 +307,7 @@
   }
 
   const getMark = event => {
+    if (!event.isTrusted) return null;
     const mark = event.target.closest?.('[data-check-policy-mark],[data-check-policy-control]');
     return groups.has(mark) ? mark : null;
   };
@@ -353,14 +355,13 @@
   }
 
   function configure(saved) {
-    const demo = saved.demo === true && ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
-    const data = demo ? globalThis.RightToReplyDemo : saved.snapshot?.data;
+    const data = saved.snapshot?.data;
     const enabled = Boolean(data?.parties.some(party => party.responses.length)) &&
       saved.enabled !== false && saved.sites?.[location.hostname] !== false;
-    const updated = demo ? undefined : saved.snapshot?.version;
-    if (settings.enabled === enabled && settings.demo === demo &&
+    const updated = saved.snapshot?.version;
+    if (settings.enabled === enabled &&
         settings.updated === updated) return;
-    settings = { enabled, demo, updated };
+    settings = { enabled, updated };
     if (enabled) matcher = feed.matcher(data, reply);
     reset();
   }
@@ -368,7 +369,7 @@
   let refreshSequence = 0;
   async function refresh() {
     const request = ++refreshSequence;
-    const saved = await api.storage.local.get(['enabled', 'sites', 'demo', 'snapshot']);
+    const saved = await api.storage.local.get(['enabled', 'sites', 'snapshot']);
     if (request === refreshSequence) configure(saved);
   }
   api.storage.onChanged.addListener(refresh);
