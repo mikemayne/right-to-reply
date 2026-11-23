@@ -14,7 +14,7 @@ const RightToReplyFeed = (() => {
     const ids = new Set();
     const names = new Set();
     for (const party of data.parties) {
-      if (!exact(party, ['id', 'name', 'color', 'responses']) || !plain(party.id, 64) ||
+      if (!(exact(party, ['id', 'name', 'color', 'responses']) || exact(party, ['id', 'name', 'color', 'identifiers', 'responses'])) || !plain(party.id, 64) ||
           !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(party.id) || ids.has(party.id) ||
           !plain(party.name, 100) || !/[\p{L}\p{N}]/u.test(party.name) ||
           names.has(party.name.normalize('NFKC').toLowerCase()) ||
@@ -22,6 +22,8 @@ const RightToReplyFeed = (() => {
           !Array.isArray(party.responses) || party.responses.length > 100) {
         throw new Error('Invalid party in response feed.');
       }
+      if ('identifiers' in party && (!Array.isArray(party.identifiers) || party.identifiers.length > 1000 ||
+          !party.identifiers.every(name => plain(name, 100) && /[\p{L}\p{N}]/u.test(name)))) throw new Error('Invalid identifiers');
       ids.add(party.id);
       names.add(party.name.normalize('NFKC').toLowerCase());
       const keywords = new Set();
@@ -49,7 +51,7 @@ const RightToReplyFeed = (() => {
         });
         return id;
       });
-      return { partyId: party.id, active: true, partyAliases: [], representatives: [], policyIds };
+      return { partyId: party.id, active: true, partyAliases: party.identifiers ?? [], representatives: [], policyIds };
     });
     return reply.create(catalog, registry);
   }

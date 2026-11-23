@@ -3,7 +3,7 @@ on:
   pull_request:
   push:
     branches: [main]
-    paths: [data/responses.json]
+    paths: [data/sources.json]
 permissions:
   contents: read
 jobs:
@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: node tools/validate.cjs
+      - run: node tools/import-sources.mjs
       - run: node --test tests/feed.test.cjs
   publish:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -25,9 +25,10 @@ jobs:
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
+      - run: node tools/import-sources.mjs
       - name: Publish approved response data
         run: |
-          if [ "$(gh api "repos/$GITHUB_REPOSITORY/contents/data/responses.json?ref=main" --jq .sha)" != "$(git rev-parse HEAD:data/responses.json)" ]; then
+          if [ "$(gh api "repos/$GITHUB_REPOSITORY/contents/data/sources.json?ref=main" --jq .sha)" != "$(git rev-parse HEAD:data/sources.json)" ]; then
             exit 0
           fi
           gh release create "responses-$GITHUB_SHA" data/responses.json --target "$GITHUB_SHA" --title "Approved responses" --notes "Reviewed response data for $GITHUB_SHA." --latest

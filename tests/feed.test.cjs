@@ -49,3 +49,23 @@ test('bad updates keep the approved snapshot and empty releases remove all respo
   assert.equal((await sync(true)).ok, true);
   assert.equal(state.snapshot.data.parties.length, 0);
 });
+
+test('keyword variants preserve offsets and whole-word boundaries', () => {
+  const variants = ['example-keyword', 'exampleKeyword', 'examplekeyword', 'example  keyword',
+    'EXAMPLE_KEYWORD', '#ExampleKeyword', 'example—keyword', 'example/keyword',
+    'example\u00a0keyword', 'example\u200bkeyword', 'Éxample Keyword', 'ｅｘａｍｐｌｅＫｅｙｗｏｒｄ'];
+  for (const keyword of ['example keyword', 'example-keyword', 'exampleKeyword', 'examplekeyword']) {
+    const data = structuredClone(sample);
+    data.parties[0].responses[0].keyword = keyword;
+    const matcher = feed.matcher(feed.validate(data), reply);
+    const parties = matcher.identify(['Example Party']);
+    for (const variant of variants) {
+      const text = '😀 ' + variant + '!';
+      const [match] = matcher.find(text, parties);
+      assert.equal(text.slice(match.start, match.end), variant.replace(/^#/, ''));
+    }
+    for (const text of ['examplekeywords', 'preexampleKeyword', 'example. Keyword', 'keyword example']) {
+      assert.equal(matcher.find(text, parties).length, 0, text);
+    }
+  }
+});
