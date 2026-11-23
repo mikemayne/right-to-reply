@@ -18,6 +18,20 @@ For an Xcode wrapper, run `xcrun safari-web-extension-packager "$PWD/dist/safari
 
 To exercise the extension, run `python -m http.server 8000` from the repository root and open `http://localhost:8000/demo/`. The page mentions the fictional party and keyword. The extension shows the response once its repository is listed in the source directory and its response is merged into that repository’s `main` branch. Use **Refresh approved responses** in the popup to check immediately. The package contains no reply data.
 
+## Optional owner disclaimer
+
+The extension owner's `extension/disclaimer.json` can contain an optional plain-text message and/or an HTTPS link. The disclaimer appears immediately below the independent extension header, before any party statements. Leave the file as `{}` or omit it to display nothing.
+
+```json
+{
+  "message": "Your notice or legal disclaimer.",
+  "link": "https://example.org/notice",
+  "linkText": "Further information"
+}
+```
+
+All fields are optional; `linkText` requires `link`. Without link text, the URL itself is shown. The packaging tool validates this configuration and bundles it locally; editing the disclaimer requires rebuilding and distributing the extension. Party repositories cannot set it. No HTML, automatic network requests, additional permissions or party-supplied links are introduced. The link opens a new tab only when selected, without a referrer.
+
 ## Public submissions
 
 Every party receives the same invitation and rules at the same time. Participation is opt-in. An authorised party representative proposes additions, edits and removals in a public pull request. The PR records evidence, links, discussion and review decisions. The distributed data contains the reviewed wording only. Parties have no direct publishing access.
