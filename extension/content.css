@@ -1,0 +1,29 @@
+[data-check-policy-mark] {
+  text-decoration: underline dotted var(--check-policy-color, currentColor) !important;
+  text-decoration-thickness: 2px !important;
+  text-underline-offset: .2em !important;
+}
+[data-check-policy-mark][role="button"] { cursor: help !important; }
+[data-check-policy-mark]:focus-visible, [data-check-policy-control]:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+[data-check-policy-control] {
+  all: unset;
+  box-sizing: border-box;
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  min-height: 24px;
+  margin-inline-start: 3px;
+  color: CanvasText;
+  background: Canvas;
+  border: 1px solid var(--check-policy-color, currentColor);
+  border-radius: 50%;
+  font: 600 12px/1 system-ui;
+  cursor: help;
+  vertical-align: middle;
+}
+@media (forced-colors: active) {
+  [data-check-policy-mark] { text-decoration-color: LinkText !important; }
+}
