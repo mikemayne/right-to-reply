@@ -14,27 +14,5 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
-      - run: node tools/import-sources.mjs
+      - run: node tools/validate.cjs
       - run: node --test tests/feed.test.cjs
-  publish:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: validate
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    concurrency:
-      group: approved-responses
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          persist-credentials: false
-      - run: node tools/import-sources.mjs
-      - name: Publish approved response data
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          if [ "$(gh api "repos/$GITHUB_REPOSITORY/contents/data/sources.json?ref=main" --jq .sha)" != "$(git rev-parse HEAD:data/sources.json)" ]; then
-            exit 0
-          fi
-          gh release create "responses-$GITHUB_SHA" data/responses.json --target "$GITHUB_SHA" --title "Approved responses" --notes "Reviewed response data for $GITHUB_SHA." --latest
