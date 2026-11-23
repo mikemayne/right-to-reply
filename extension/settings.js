@@ -37,7 +37,8 @@
     status.textContent = 'Refreshing…';
     try {
       const result = await api.runtime.sendMessage({ type: 'refresh-responses', force: true });
-      status.textContent = result?.ok ? 'Approved responses refreshed.' :
+      status.textContent = result?.state === 'partial' ? 'Available parties refreshed. Some parties are temporarily unavailable.' :
+        result?.ok ? 'Approved responses refreshed.' :
         result?.state === 'cached' ? 'Refresh failed. Using the last approved responses.' : 'No approved responses available.';
     } catch {
       status.textContent = 'Could not refresh approved responses.';

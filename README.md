@@ -1,6 +1,6 @@
 # Right to Reply
 
-Right to Reply displays approved plain-text responses alongside keyword mentions when the participating party is named in the same article. It matches names and keywords locally. The extension downloads the approved source directory and party files from each repository’s `main` branch. Its requests include no article text or page URL.
+Right to Reply displays approved plain-text responses alongside keyword mentions when the participating party is named in the same article. It matches names and keywords locally. The extension downloads only the approved source directory and party metadata from each repository’s `main` branch, then fetches individual response files when a reader opens a popup. Requests contain no article text or page URL, but the requested keyword filename is visible to GitHub.
 
 ## Install in debug mode
 
@@ -24,9 +24,9 @@ Every party receives the same invitation and rules at the same time. Participati
 
 Each participating party has a dedicated public GitHub repository controlled by the project owner. The party’s authorised representative proposes changes through public PRs to that repository; only the owner approves and merges them into `main`. Its root contains two JSON files. `identifiers.json` is an array such as `["Example Party", "Alex Example"]`. Include the party name, approved senior members and any approved aliases. A mention anywhere in the same article qualifies that party for keyword matching. `party.json` supplies the party's `id`, `name` and hex `color`.
 
-Put one Markdown file per response in `responses/`. The filename without `.md` is the keyword, including spaces. For example, `responses/example keyword.md` matches the phrase **example keyword**. Renaming the file changes the keyword. Deleting it withdraws that response on the next approved release.
+Put one Markdown file per response in `responses/`. The filename without `.md` is the keyword, including spaces. For example, `responses/example keyword.md` matches the phrase **example keyword**. Renaming the file changes the keyword. To withdraw a response, delete its file. There is no manual keyword list to maintain.
 
-Write two plain-text paragraphs, each on one line, separated by a blank line. The first is the short response (up to 160 characters), the second the extended description (up to 255). For example:
+Write two plain-text paragraphs, each on one line, separated by a blank line. The first is the short response (up to 128 characters), the second the extended description (up to 255). For example:
 
 ```text
 Your one-line response to the keyword goes here.
@@ -36,9 +36,13 @@ Your extended description goes here.
 
 The browser displays both paragraphs as plain text. Put evidence links in the PR discussion.
 
-To enrol or remove a party, submit a public PR changing `data/sources.json`. Each entry contains only `repository` (owner/repo). The browser downloads `party.json`, `identifiers.json` and the keyword Markdown files from each listed repository’s `main` branch. Include the keyword filenames (without `.md`) in the `keywords` array in `party.json`. Party representatives submit changes only to their own repository.
+To enrol or remove a party, submit a public PR changing `data/sources.json`. Each entry contains only `repository` (owner/repo). The browser downloads `party.json` and `identifiers.json` from each listed repository’s `main` branch. It fetches individual keyword Markdown files only when a reader opens a matching popup. An owner-managed GitHub Action in each party repository generates `keywords.json` on the separate `keyword-index` branch whenever approved changes merge into `main`. The browser downloads that index; the response filenames are its only source. Contributors never edit the index. The index is limited to 256 KiB, not a fixed number of keywords. Use the test party repository as the template for future parties. Party representatives submit changes only to their own repository.
 
-Reviewers verify authority and wording, then record the decision in the public PR. Merging a response PR into the party repository’s protected `main` publishes that change on the next successful extension refresh. No second approval or central directory edit is required. Protect each party repository’s `main` against unreviewed changes; contributors must not have direct publishing access. The central directory is used only to enrol or remove repositories. The extension retains the last valid response set if an update fails. Feed edits do not require a new extension build.
+Reviewers verify authority and wording, then record the decision in the public PR. Merging a response PR into the party repository’s `main` publishes the response file; the automatic index job updates the keyword list. New and removed keywords take effect on the next successful extension metadata refresh. No second approval or central directory edit is required. Contributors must not have direct publishing access or permission to change the owner-managed index workflow. The central directory is used only to enrol or remove repositories. Metadata normally refreshes every 15 minutes. Unavailable or malformed party metadata is excluded independently; other parties remain available, and partial refreshes are retried on subsequent eligible refreshes. If the central directory itself cannot be read, the last valid metadata is retained for up to 24 hours. Successful replies are cached in background memory for up to five minutes and invalidated on metadata refresh; missing or malformed response files display an unavailable message instead of stale content. Removal from the directory or keyword list takes effect on the next successful metadata refresh. Feed edits do not require a new extension build.
+
+## Delivery and CDN
+
+GitHub raw files are the default origin. The browser respects HTTP caching and backs off an affected repository on HTTP 429 or 503 (honouring Retry-After up to one hour). No GitHub REST API is called by readers. To build against a CDN, configure a trusted HTTPS pull zone whose origin is `https://raw.githubusercontent.com` and preserves the path, then run `python tools/package.py --base-url https://YOUR-CDN-HOST`. The package restricts network permissions and CSP to the chosen origin. Use a short cache TTL (for example five minutes) for directory, metadata, index and response files; purge withdrawn files and indexes if immediate removal is necessary. No CDN account is required for development and no CDN is provisioned by this repository.
 
 ## Website library
 

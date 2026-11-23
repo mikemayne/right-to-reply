@@ -29,7 +29,7 @@ const RightToReplyFeed = (() => {
       const keywords = new Set();
       for (const entry of party.responses) {
         if (!exact(entry, ['keyword', 'response', 'description']) || !plain(entry.keyword, 100) ||
-            !/[\p{L}\p{N}]/u.test(entry.keyword) || !plain(entry.response, 160) ||
+            !/[\p{L}\p{N}]/u.test(entry.keyword) || !plain(entry.response, 128) ||
             !plain(entry.description, 255) || keywords.has(entry.keyword.normalize('NFKC').toLowerCase())) {
           throw new Error('Invalid keyword or response in ' + party.id + '.');
         }
@@ -39,11 +39,34 @@ const RightToReplyFeed = (() => {
     return data;
   }
 
+  const repository = value => typeof value === 'string' && /^[a-z0-9-]+\/[a-z0-9][a-z0-9_.-]*$/i.test(value);
+  const keyword = value => plain(value, 100) && /[\p{L}\p{N}]/u.test(value) && !/[/\\]/u.test(value);
+  function validateParty(party) {
+    if (!exact(party, ['repository', 'id', 'name', 'color', 'identifiers', 'keywords']) ||
+        !repository(party.repository) || !Array.isArray(party.keywords) ||
+        new TextEncoder().encode(JSON.stringify(party.keywords)).length > 256 * 1024 ||
+        !party.keywords.every(keyword) ||
+        new Set(party.keywords.map(k => k.normalize('NFKC').toLowerCase())).size !== party.keywords.length ||
+        !Array.isArray(party.identifiers) || !party.identifiers.includes(party.name)) {
+      throw new Error('Invalid party metadata');
+    }
+    const { id, name, color, identifiers } = party;
+    validate({ schemaVersion: 1, parties: [{ id, name, color, identifiers, responses: [] }] });
+    return party;
+  }
+  function validateReply(body) {
+    if (typeof body !== 'string') throw new Error('Invalid response');
+    const lines = body.replace(/\r\n/g, '\n').replace(/\n$/, '').split('\n');
+    if (lines.length !== 3 || lines[1] !== '' || !plain(lines[0], 128) || !plain(lines[2], 255)) {
+      throw new Error('Expected two size-limited plain-text paragraphs');
+    }
+    return { response: lines[0], description: lines[2] };
+  }
   function matcher(data, reply) {
     return reply.create(data.parties);
   }
 
-  return { validate, matcher };
+  return { validate, validateParty, validateReply, repository, keyword, matcher };
 })();
 if (typeof module === 'object') module.exports = RightToReplyFeed;
 else globalThis.RightToReplyFeed = RightToReplyFeed;

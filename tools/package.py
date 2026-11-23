@@ -1,5 +1,7 @@
 """Generate unpacked extensions and ZIPs for all supported browser families."""
+import argparse
 import json
+import re
 from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
@@ -21,7 +23,16 @@ def package(name, files):
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--base-url", default="https://raw.githubusercontent.com",
+                        help="HTTPS origin serving the raw GitHub path layout")
+    args = parser.parse_args()
+    origin = args.base_url.rstrip("/")
+    if not re.fullmatch(r"https://[a-zA-Z0-9.-]+", origin):
+        parser.error("--base-url must be a plain HTTPS origin without a path or credentials")
     assets = {name: (EXTENSION / name).read_text(encoding="utf-8") for name in ASSETS}
+    assets["sources.js"] = assets["sources.js"].replace(
+        "'https://raw.githubusercontent.com/'", json.dumps(origin + "/"), 1)
     for target in ("chrome", "edge", "firefox", "safari"):
         manifest = {
             "manifest_version": 3,
@@ -30,11 +41,11 @@ def main():
             "description": "Read publicly reviewed responses from participating parties.",
             "permissions": ["storage", "activeTab"],
             "host_permissions": [
-                "https://raw.githubusercontent.com/*",
+                origin + "/*",
             ],
             "content_security_policy": {"extension_pages": (
                 "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
-                "connect-src https://raw.githubusercontent.com"
+                "connect-src " + origin +
                 "; object-src 'none'; base-uri 'none'; frame-src 'none'"
             )},
             "background": {"service_worker": "sync.js"},
