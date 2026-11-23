@@ -45,3 +45,5 @@ Reviewers verify authority and wording, then record the decision in the public P
 The same build generates `dist/website/right-to-reply.mjs`. Host this module from your site and call `createScanner(approvedData)({ headline, blocks })`. It returns participating parties and matches for the headline and each supplied block. Match offsets are UTF-16 indices. Render response and description as text.
 
 Run `node tools/validate.cjs` and `node --test tests/feed.test.cjs` to validate the data and exercise the matcher and refresh logic.
+
+Identifiers accept joined, spaced and hyphenated spellings. For additional multi-word identifiers, the first and last space-separated parts may appear in either order anywhere in the same article. Middle names are optional. This rule also applies to multi-word aliases submitted in the name list. A response keyword must still match.
