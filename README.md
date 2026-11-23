@@ -1,6 +1,6 @@
 # Right to Reply
 
-Right to Reply displays approved plain-text responses alongside keyword mentions when the participating party is named in the same article. It matches names and keywords locally. The extension downloads the approved source directory and pinned party files and includes no article text or page URL.
+Right to Reply displays approved plain-text responses alongside keyword mentions when the participating party is named in the same article. It matches names and keywords locally. The extension downloads the approved source directory and party files from each repository’s `main` branch. Its requests include no article text or page URL.
 
 ## Install in debug mode
 
@@ -16,13 +16,13 @@ Download or clone this repository. From its root run `python tools/package.py` (
 
 For an Xcode wrapper, run `xcrun safari-web-extension-packager "$PWD/dist/safari"` on a Mac. Older Xcode versions call this command `safari-web-extension-converter`. Set a development bundle identifier and signing team in the generated project. In Safari, grant the extension access to the demo or other site you want to test. See [Apple’s packaging instructions](https://developer.apple.com/documentation/safariservices/packaging-a-web-extension-for-safari) and [running instructions](https://developer.apple.com/documentation/safariservices/running-your-safari-web-extension).
 
-To exercise the extension, run `python -m http.server 8000` from the repository root and open `http://localhost:8000/demo/`. The page mentions the fictional party and keyword. The extension shows the response once its source revision has been merged into the source directory. Use **Refresh approved responses** in the popup to check immediately. The package contains no reply data.
+To exercise the extension, run `python -m http.server 8000` from the repository root and open `http://localhost:8000/demo/`. The page mentions the fictional party and keyword. The extension shows the response once its repository is listed in the source directory and its response is merged into that repository’s `main` branch. Use **Refresh approved responses** in the popup to check immediately. The package contains no reply data.
 
 ## Public submissions
 
 Every party receives the same invitation and rules at the same time. Participation is opt-in. An authorised party representative proposes additions, edits and removals in a public pull request. The PR records evidence, links, discussion and review decisions. The distributed data contains the reviewed wording only. Parties have no direct publishing access.
 
-Each participating party maintains its own public GitHub repository. Its root contains two JSON files. `identifiers.json` is an array such as `["Example Party", "Alex Example"]`. Include the party name, approved senior members and any approved aliases. A mention anywhere in the same article qualifies that party for keyword matching. `party.json` supplies the party's `id`, `name` and hex `color`.
+Each participating party has a dedicated public GitHub repository controlled by the project owner. The party’s authorised representative proposes changes through public PRs to that repository; only the owner approves and merges them into `main`. Its root contains two JSON files. `identifiers.json` is an array such as `["Example Party", "Alex Example"]`. Include the party name, approved senior members and any approved aliases. A mention anywhere in the same article qualifies that party for keyword matching. `party.json` supplies the party's `id`, `name` and hex `color`.
 
 Put one Markdown file per response in `responses/`. The filename without `.md` is the keyword, including spaces. For example, `responses/example keyword.md` matches the phrase **example keyword**. Renaming the file changes the keyword. Deleting it withdraws that response on the next approved release.
 
@@ -36,9 +36,9 @@ Your extended description goes here.
 
 The browser displays both paragraphs as plain text. Put evidence links in the PR discussion.
 
-To enrol or update a party, submit a public PR changing `data/sources.json`. Each entry contains `repository` (owner/repo) and `commit` (the full reviewed Git commit SHA). Review the changed files at that revision. The browser downloads party.json, identifiers.json and the keyword Markdown files directly from each approved revision. Include the keyword filenames (without .md) in the keywords array in party.json. Parties edit only their own repository.
+To enrol or remove a party, submit a public PR changing `data/sources.json`. Each entry contains only `repository` (owner/repo). The browser downloads `party.json`, `identifiers.json` and the keyword Markdown files from each listed repository’s `main` branch. Include the keyword filenames (without `.md`) in the `keywords` array in `party.json`. Party representatives submit changes only to their own repository.
 
-Reviewers verify authority and wording, then record the decision in the public PR. Merging the reviewed directory to protected `main` updates the live list at `data/sources.json`. This is the only file the extension requests from the main repository. It retains the last valid response set if an update fails. Feed edits do not require a new extension build.
+Reviewers verify authority and wording, then record the decision in the public PR. Merging a response PR into the party repository’s protected `main` publishes that change on the next successful extension refresh. No second approval or central directory edit is required. Protect each party repository’s `main` against unreviewed changes; contributors must not have direct publishing access. The central directory is used only to enrol or remove repositories. The extension retains the last valid response set if an update fails. Feed edits do not require a new extension build.
 
 ## Website library
 

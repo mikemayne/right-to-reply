@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const feed = require('../extension/feed.js');
 const reply = require('../extension/article-reply.js');
+const sources = require('../extension/sources.js');
 const { createSync } = require('../extension/sync.js');
 require('./sample-data.js');
 const sample = globalThis.RightToReplyDemo;
@@ -100,4 +101,37 @@ test('shared matches shuffle the two responses and the two party colours indepen
       assert.deepEqual(match.colors, second ? expected : expected.reverse());
     }
   } finally { Math.random = original; }
+});
+
+
+test('source directory loads main and publishes edits without directory changes', async () => {
+  const repo = 'owner/example-party';
+  const directory = [{ repository: repo }];
+  const directoryUrl = 'https://raw.githubusercontent.com/mikemayne/right-to-reply/main/data/sources.json';
+  const base = 'https://raw.githubusercontent.com/' + repo + '/main/';
+  const calls = [];
+  let response = 'Original response.';
+  const request = async (url, options) => {
+    calls.push(url);
+    assert.equal(options.credentials, 'omit');
+    assert.equal(options.referrerPolicy, 'no-referrer');
+    const files = {
+      [directoryUrl]: JSON.stringify(directory),
+      [base + 'party.json']: JSON.stringify({ id: 'example-party', name: 'Example Party', color: '#000000', keywords: ['example keyword'] }),
+      [base + 'identifiers.json']: JSON.stringify(['Example Party']),
+      [base + 'responses/example%20keyword.md']: response + '\n\nExtended description.\n'
+    };
+    assert.ok(Object.hasOwn(files, url), url);
+    return new Response(files[url]);
+  };
+  for (const expected of ['Original response.', 'Updated response.']) {
+    response = expected;
+    calls.length = 0;
+    const result = await sources.load(undefined, feed, request);
+    assert.equal(result.parties[0].responses[0].response, expected);
+    assert.deepEqual(calls, [directoryUrl, base + 'party.json', base + 'identifiers.json', base + 'responses/example%20keyword.md']);
+  }
+  await assert.rejects(sources.load([{ repository: repo, commit: 'a'.repeat(40) }], feed, request), /Invalid source/);
+  await assert.rejects(sources.load([{ repository: '../bad' }], feed, request), /Invalid source/);
+  await assert.rejects(sources.load([...directory, { repository: 'OWNER/EXAMPLE-PARTY' }], feed, request), /Invalid source/);
 });

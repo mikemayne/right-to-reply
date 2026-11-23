@@ -28,11 +28,13 @@ const RightToReplySources = (() => {
     const sources = directory === undefined ? JSON.parse(await read(directoryUrl, 65536)) : directory;
     if (!Array.isArray(sources) || sources.length > 100) throw new Error('Invalid source directory');
     const parties = [];
+    const repositories = new Set();
     for (const source of sources) {
-      if (!source || Object.keys(source).length !== 2 || typeof source.repository !== 'string' ||
+      if (!source || Object.keys(source).length !== 1 || typeof source.repository !== 'string' ||
           !/^[a-z0-9-]+\/[a-z0-9][a-z0-9_.-]*$/i.test(source.repository) ||
-          typeof source.commit !== 'string' || !/^[0-9a-f]{40}$/.test(source.commit)) throw new Error('Invalid source');
-      const base = root + source.repository + '/' + source.commit + '/';
+          repositories.has(source.repository.toLowerCase())) throw new Error('Invalid source');
+      repositories.add(source.repository.toLowerCase());
+      const base = root + source.repository + '/main/';
       const party = JSON.parse(await read(base + 'party.json', 65536));
       const identifiers = JSON.parse(await read(base + 'identifiers.json', 256 * 1024));
       if (Object.keys(party).sort().join(',') !== 'color,id,keywords,name' ||
