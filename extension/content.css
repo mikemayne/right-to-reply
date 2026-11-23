@@ -1,5 +1,5 @@
 [data-right-to-reply-mark] {
-  text-decoration: underline dotted var(--right-to-reply-color, currentColor) !important;
+  text-decoration: underline dotted currentColor !important;
   text-decoration-thickness: 2px !important;
   text-underline-offset: .2em !important;
 }
@@ -18,20 +18,11 @@
   margin-inline-start: 3px;
   color: CanvasText;
   background: Canvas;
-  border: 1px solid var(--right-to-reply-color, currentColor);
+  border: 1px solid currentColor;
   border-radius: 50%;
   font: 600 12px/1 system-ui;
   cursor: help;
   vertical-align: middle;
-}
-@media (forced-colors: none) {
-  [data-right-to-reply-mark][data-reply-segments] {
-    text-decoration: none !important;
-    background-image: var(--reply-segments) !important;
-    background-size: 100% 2px !important;
-    background-position: left bottom !important;
-    background-repeat: no-repeat !important;
-  }
 }
 @media (forced-colors: active) {
   [data-right-to-reply-mark] { text-decoration-color: LinkText !important; }
