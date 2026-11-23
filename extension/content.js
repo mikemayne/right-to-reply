@@ -2,25 +2,19 @@
 
 (() => {
   const api = globalThis.browser ?? globalThis.chrome;
-  const reply = globalThis.CheckPolicyReply;
+  const reply = globalThis.RightToReplyMatcher;
   const feed = globalThis.RightToReplyFeed;
   const selector = 'p,li,blockquote,h1,h2,h3,h4,h5,h6,[data-testid="tweetText"]';
-  const editorial = 'article,main,[role="main"],[role="article"],[itemprop="articleBody"]';
+  const article = 'article,[role="article"],[data-testid="tweet"]';
+  const articleBody = '[itemprop="articleBody"]';
+  const main = 'main,[role="main"]';
+  const editorial = article + ',' + articleBody + ',' + main;
   const ignored = 'nav,aside,footer,.site-nav,.navigation,.breadcrumb,.breadcrumbs,svg,math,[role="navigation"],[role="menu"],[role="menubar"],[role="complementary"],[role="banner"],[role="contentinfo"],[aria-hidden="true"],[hidden],button,label,input,textarea,select,code,pre,script,style,[contenteditable]:not([contenteditable="false"]),[role="button"]';
   const groups = new WeakMap();
-  const controls = new WeakMap();
-  const pending = new Set();
-  const processed = new WeakSet();
+  const dirty = new Set();
   let settings = { enabled: false };
   let matcher;
-  let eligibleByRoot = new Map();
-  let singleArticle;
-  let rescanPending = false;
-  let revision = 0;
   let scheduled = false;
-  let running = false;
-  let queue = [];
-  let working;
   let active;
   let origin;
   let pinned = false;
@@ -38,7 +32,7 @@
     let text = '';
     for (let node = walker.nextNode(); node; node = walker.nextNode()) {
       const parent = node.parentElement;
-      if (owner(parent) !== block || parent.closest(ignored)) {
+      if (owner(parent) !== block || parent.closest(ignored) || !visible(parent)) {
         text += ' ';
         continue;
       }
@@ -62,8 +56,8 @@
         if (to < node.length) node.splitText(to);
         const target = from ? node.splitText(from) : node;
         const span = document.createElement('span');
-        span.dataset.checkPolicyMark = '';
-        if (match.color) span.style.setProperty('--check-policy-color', match.color);
+        span.dataset.rightToReplyMark = '';
+        if (match.color) span.style.setProperty('--right-to-reply-color', match.color);
         else {
           const stops = match.colors.map((color, index) =>
             color + ' ' + (100 * index / match.colors.length) + '% ' +
@@ -85,78 +79,83 @@
       if (links.length) {
         const button = document.createElement('button');
         button.type = 'button';
-        button.dataset.checkPolicyControl = '';
+        button.dataset.rightToReplyControl = '';
         button.textContent = 'i';
         button.setAttribute('aria-label', label);
         button.setAttribute('aria-haspopup', 'dialog');
-        if (match.color) button.style.setProperty('--check-policy-color', match.color);
+        if (match.color) button.style.setProperty('--right-to-reply-color', match.color);
         group.anchor = button;
         groups.set(button, group);
         links.at(-1).after(button);
-        const existing = controls.get(block) ?? [];
-        existing.push(button);
-        controls.set(block, existing);
       }
     }
   }
 
-  function articleRoot(block) {
-    return block.closest('article,[role="article"]') ?? singleArticle ?? block.closest(editorial) ?? document.body;
+  function articleRoot(element) {
+    return element?.closest(article) ?? element?.closest(articleBody) ??
+      element?.closest(main) ?? document.body;
   }
 
-  function rebuild() {
-    const articles = [...document.querySelectorAll('article,[role="article"]')]
-      .filter(element => !element.parentElement.closest('article,[role="article"]') &&
-        !element.closest(ignored) && element.getClientRects().length);
-    singleArticle = articles.length === 1 ? articles[0] : undefined;
-    for (const block of document.body.querySelectorAll(selector + ',a[href]')) {
-      const ownerBlock = owner(block);
-      if (ownerBlock && !ownerBlock.closest(ignored)) pending.add(ownerBlock);
-    }
-    const texts = new Map();
-    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-      const parent = node.parentElement;
-      if (!node.data || parent.closest(ignored) || !parent.getClientRects().length ||
-          getComputedStyle(parent).visibility !== 'visible') continue;
-      const root = articleRoot(parent);
-      if (!texts.has(root)) texts.set(root, new Map());
-      const blocks = texts.get(root);
-      const block = owner(parent) ?? parent.closest('div,section,header') ?? parent;
-      blocks.set(block, (blocks.get(block) ?? '') + node.data);
-    }
-    eligibleByRoot = new Map([...texts].map(([root, blocks]) => [root, matcher.identify(blocks.values())]));
-    for (const block of pending) processed.delete(block);
+  function visible(element) {
+    return element.getClientRects().length > 0 && getComputedStyle(element).visibility === 'visible';
+  }
+
+  function explicitRoot(root) {
+    return root.matches(article + ',' + articleBody);
+  }
+
+  function queueRoot(root) {
+    if (root?.isConnected) dirty.add(root);
+  }
+
+  function queueSubtree(element) {
+    if (!element?.isConnected) return;
+    queueRoot(articleRoot(element));
+    for (const child of element.querySelectorAll(editorial)) queueRoot(articleRoot(child));
   }
 
   function handleMutations(records) {
-    if (!settings.enabled || rescanPending || !records.some(record => {
-      if (record.type === 'characterData') return true;
-      return [...record.addedNodes, ...record.removedNodes].some(node => node !== host);
-    })) return;
-    rescanPending = true;
-    requestAnimationFrame(() => {
-      rescanPending = false;
-      if (settings.enabled) reset();
-    });
+    if (!settings.enabled) return;
+    for (const record of records) {
+      const element = record.target.nodeType === Node.ELEMENT_NODE ?
+        record.target : record.target.parentElement;
+      if (!element || element === host || host.contains(element)) continue;
+      if (record.type === 'childList') {
+        const changed = [...record.addedNodes, ...record.removedNodes].filter(node => node !== host);
+        if (!changed.length || element.closest(ignored)) continue;
+        queueRoot(articleRoot(element));
+        for (const node of record.addedNodes) {
+          if (node.nodeType === Node.ELEMENT_NODE && node !== host) queueSubtree(node);
+        }
+      } else if (record.type === 'attributes') {
+        // Visibility or semantic boundary changes can affect both the old
+        // containing article and the new one.
+        queueRoot(articleRoot(element.parentElement));
+        queueSubtree(element);
+      } else if (!element.closest(ignored)) {
+        queueRoot(articleRoot(element));
+      }
+    }
+    if (active && !active.isConnected) close(false);
+    schedule();
   }
 
   const observer = new MutationObserver(handleMutations);
 
-  function unwrap(root) {
-    for (const button of controls.get(root) ?? []) button.remove();
-    controls.delete(root);
-    for (const item of root.querySelectorAll('[data-check-policy-mark],[data-check-policy-control]')) {
-      if (!groups.has(item)) continue;
-      if (root !== document.body && owner(item.parentElement) !== root) continue;
+  function unwrap(root, scoped = false) {
+    for (const item of root.querySelectorAll('[data-right-to-reply-mark],[data-right-to-reply-control]')) {
+      if (!groups.has(item) || (scoped && articleRoot(item) !== root)) continue;
       groups.delete(item);
-      if (item.hasAttribute('data-check-policy-control')) item.remove();
+      if (item.hasAttribute('data-right-to-reply-control')) item.remove();
       else item.replaceWith(...item.childNodes);
     }
   }
 
   function observe() {
-    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+    observer.observe(document.body, {
+      childList: true, subtree: true, characterData: true, attributes: true,
+      attributeFilter: ['hidden', 'aria-hidden', 'role', 'itemprop', 'data-testid']
+    });
   }
 
   function writeDOM(write) {
@@ -170,68 +169,65 @@
     }
   }
 
-  const indicator = document.createElement('div');
-  indicator.setAttribute('aria-hidden', 'true');
-  indicator.dataset.checkPolicyProgress = '';
-  indicator.style.cssText = 'all:initial!important;position:fixed!important;z-index:2147483646!important;width:7px!important;height:7px!important;border-radius:50%!important;background:#64748b!important;box-shadow:0 0 0 1px Canvas!important;pointer-events:none!important;';
+  function scanRoot(root) {
+    if (!root.isConnected) return;
+    writeDOM(() => {
+      if (active && (!active.isConnected || articleRoot(active) === root)) close(false);
+      unwrap(root, true);
+      if (root.closest(ignored) || !visible(root)) return;
+      // A page-level fallback must not absorb headlines, navigation or
+      // recommendations belonging to separately identified articles.
+      if (!explicitRoot(root) && root.querySelector(article + ',' + articleBody)) return;
+      if (root === document.body && root.querySelector(main)) return;
+      const texts = new Map();
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+      let previousBlock;
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        const parent = node.parentElement;
+        if (!node.data || articleRoot(parent) !== root || parent.closest(ignored) || !visible(parent)) {
+          previousBlock = undefined;
+          continue;
+        }
+        const block = owner(parent) ?? parent.closest('div,section,header') ?? parent;
+        const previous = texts.get(block) ?? '';
+        texts.set(block, previous + (previous && previousBlock !== block ? ' ' : '') + node.data);
+        previousBlock = block;
+      }
+      const eligible = matcher.identify(texts.values());
+      if (!eligible.size) return;
 
-  function moveIndicator() {
-    if (!working?.isConnected || !working.matches('p,blockquote,li')) {
-      indicator.remove();
-      return;
-    }
-    const edge = working.getBoundingClientRect();
-    if (edge.bottom < 0 || edge.top >= innerHeight || !edge.width) {
-      indicator.remove();
-      return;
-    }
-    indicator.style.setProperty('left', Math.max(0, Math.min(edge.right + 6, innerWidth - 9)) + 'px', 'important');
-    indicator.style.setProperty('top', Math.max(1, edge.top + 7) + 'px', 'important');
-    if (!indicator.isConnected) document.documentElement.append(indicator);
-  }
-
-  function schedule() {
-    if (scheduled || running || !settings.enabled || !pending.size || document.hidden) return;
-    scheduled = true;
-    requestAnimationFrame(() => {
-      scheduled = false;
-      processNext().catch(error => console.warn('Right to Reply could not scan a passage', error));
+      const blocks = new Set();
+      for (const element of root.querySelectorAll(selector + ',a[href]')) {
+        const block = owner(element);
+        if (block && articleRoot(block) === root && !block.closest(ignored) && visible(block)) blocks.add(block);
+      }
+      for (const block of blocks) {
+        const snapshot = collect(block);
+        if (!snapshot) continue;
+        const matches = matcher.find(snapshot.text, eligible);
+        if (matches.length) addMarks(block, snapshot, matches);
+      }
     });
   }
 
-  async function processNext() {
-    if (!settings.enabled || document.hidden) return;
-    running = true;
-    const run = revision;
-    try {
-      if (!queue.length) {
-        queue = [...pending].sort((a, b) => a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1);
+  function schedule() {
+    if (scheduled || !settings.enabled || !dirty.size || document.hidden) return;
+    scheduled = true;
+    requestAnimationFrame(() => {
+      scheduled = false;
+      if (!settings.enabled || document.hidden) return;
+      // Drain only dirty article roots, one per frame. Other articles and
+      // their open popups/marks are left untouched.
+      const root = dirty.values().next().value;
+      dirty.delete(root);
+      try {
+        if (root) scanRoot(root);
+      } catch (error) {
+        console.warn('Right to Reply could not scan an article', error);
+      } finally {
+        schedule();
       }
-      const block = queue.pop();
-      if (!block) return;
-      pending.delete(block);
-      if (!block.isConnected || processed.has(block) || !block.getClientRects().length) return;
-      working = block;
-      moveIndicator();
-      writeDOM(() => {
-        if (block.contains(active) || controls.get(block)?.includes(active)) close(false);
-        unwrap(block);
-      });
-      const snapshot = collect(block);
-      if (!snapshot) return;
-      const matches = matcher.find(snapshot.text, eligibleByRoot.get(articleRoot(block)) ?? new Set());
-      if (!settings.enabled || run !== revision || !block.isConnected) return;
-      writeDOM(() => {
-        if (pending.has(block)) return;
-        processed.add(block);
-        addMarks(block, snapshot, matches);
-      });
-    } finally {
-      running = false;
-      working = null;
-      if (pending.size) schedule();
-      else requestAnimationFrame(() => { if (!working) indicator.remove(); });
-    }
+    });
   }
 
   const host = document.createElement('div');
@@ -241,7 +237,7 @@
   style.textContent = 'section{box-sizing:border-box;width:min(360px,calc(100vw - 16px));max-height:min(65vh,470px);overflow:auto;padding:14px;border:1px solid GrayText;border-radius:8px;background:Canvas;color:CanvasText;color-scheme:light dark;box-shadow:0 4px 20px #0004;font:14px/1.45 system-ui} h2{font-size:1.1em;margin:0 32px 8px 0} p{margin:5px 0} article+article{border-top:1px solid GrayText;margin-top:10px;padding-top:10px} button{float:right;font:inherit} a{color:LinkText} blockquote{margin:6px 0}';
   const popup = document.createElement('section');
   popup.setAttribute('role', 'dialog');
-  popup.setAttribute('aria-labelledby', 'cp-title');
+  popup.setAttribute('aria-labelledby', 'right-to-reply-title');
   popup.addEventListener('pointerenter', () => clearTimeout(leaveTimer));
   popup.addEventListener('pointerleave', delayClose);
   shadow.append(style, popup);
@@ -270,7 +266,6 @@
   }
 
   function position() {
-    moveIndicator();
     if (!origin?.isConnected) return;
     const anchor = origin.getBoundingClientRect();
     const { width, height } = popup.getBoundingClientRect();
@@ -294,7 +289,7 @@
     const button = add('button', 'Close');
     button.type = 'button';
     button.addEventListener('click', () => close(true));
-    add('h2', 'Right to Reply').id = 'cp-title';
+    add('h2', 'Right to Reply').id = 'right-to-reply-title';
     for (const policy of group.candidates) {
       const card = add('article', '');
       add('strong', policy.partyName, card);
@@ -308,7 +303,7 @@
 
   const getMark = event => {
     if (!event.isTrusted) return null;
-    const mark = event.target.closest?.('[data-check-policy-mark],[data-check-policy-control]');
+    const mark = event.target.closest?.('[data-right-to-reply-mark],[data-right-to-reply-control]');
     return groups.has(mark) ? mark : null;
   };
   document.addEventListener('pointerover', event => {
@@ -339,16 +334,12 @@
   addEventListener('scroll', position, { passive: true, capture: true });
 
   function reset() {
-    revision++;
-    pending.clear();
-    queue = [];
+    dirty.clear();
     observer.disconnect();
     close(false);
-    indicator.remove();
-    working = null;
     unwrap(document.body);
     if (settings.enabled) {
-      rebuild();
+      queueSubtree(document.body);
       observe();
       schedule();
     }

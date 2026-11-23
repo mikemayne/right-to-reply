@@ -1,7 +1,7 @@
 export const validateFeed = RightToReplyFeed.validate;
 
 export function createScanner(data) {
-  const matcher = RightToReplyFeed.matcher(validateFeed(data), CheckPolicyReply);
+  const matcher = RightToReplyFeed.matcher(validateFeed(data), RightToReplyMatcher);
   return ({ headline = '', blocks = [] }) => {
     const eligible = matcher.identify([headline, ...blocks]);
     return {
