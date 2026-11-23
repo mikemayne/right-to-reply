@@ -3,7 +3,7 @@ globalThis.RightToReplyDemo = {
   parties: [{
     id: 'example-party',
     name: 'Example Party',
-    color: '#3468ac',
+    color: '#000000',
     responses: [{
       keyword: 'example keyword',
       response: 'Your one line response to the keyword goes here.',

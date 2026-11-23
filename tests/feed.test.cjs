@@ -13,7 +13,7 @@ test('fictional article requires a party mention and literal whole keywords', ()
   const parties = matcher.identify(['Example Party']);
   assert.equal(matcher.find('example keywords', parties).length, 0);
   const [match] = matcher.find('An example keyword.', parties);
-  assert.equal(match.color, '#3468ac');
+  assert.equal(match.color, '#000000');
   assert.equal(match.candidates[0].response, sample.parties[0].responses[0].response);
   assert.equal(feed.matcher(feed.validate(empty), reply).identify(['Example Party']).size, 0);
 });
@@ -82,4 +82,22 @@ test('identifiers support spelling variants and article-wide first and last name
     ['Alex and Smith-Jones'], ['Example yesterday', 'Party today']]) {
     assert.equal(matcher.identify(blocks).size, 0);
   }
+});
+
+test('shared matches shuffle the two responses and the two party colours independently', () => {
+  const data = structuredClone(sample);
+  data.parties.push({ ...structuredClone(data.parties[0]), id: 'other', name: 'Other Party', color: '#abcdef' });
+  const matcher = feed.matcher(feed.validate(data), reply);
+  const eligible = matcher.identify(['Example Party and Other Party']);
+  const original = Math.random;
+  try {
+    for (const first of [0, 0.99]) for (const second of [0, 0.99]) {
+      const rolls = [first, second];
+      Math.random = () => rolls.shift();
+      const [match] = matcher.find('example keyword', eligible);
+      assert.equal(match.candidates.length, 2);
+      const expected = match.candidates.map(candidate => data.parties.find(p => p.id === candidate.partyId).color);
+      assert.deepEqual(match.colors, second ? expected : expected.reverse());
+    }
+  } finally { Math.random = original; }
 });

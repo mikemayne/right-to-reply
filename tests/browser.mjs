@@ -49,7 +49,7 @@ try {
   assert.equal(await mark.count(), 0);
   await settings.evaluate(() => chrome.storage.local.set({ demo: true }));
   await mark.waitFor();
-  assert.equal(await mark.evaluate(node => node.style.getPropertyValue('--check-policy-color')), '#3468ac');
+  assert.equal(await mark.evaluate(node => node.style.getPropertyValue('--check-policy-color')), '#000000');
   assert.equal(await page.locator('nav [data-check-policy-mark],#negative [data-check-policy-mark]').count(), 0);
   await mark.press('Enter');
   const dialog = page.getByRole('dialog');

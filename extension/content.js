@@ -63,6 +63,13 @@
         const span = document.createElement('span');
         span.dataset.checkPolicyMark = '';
         if (match.color) span.style.setProperty('--check-policy-color', match.color);
+        else {
+          const stops = match.colors.map((color, index) =>
+            color + ' ' + (100 * index / match.colors.length) + '% ' +
+            (100 * (index + 1) / match.colors.length) + '%');
+          span.dataset.replySegments = '';
+          span.style.setProperty('--reply-segments', 'linear-gradient(to right,' + stops.join(',') + ')');
+        }
         groups.set(span, group);
         if (i === 0 && !links.length) {
           group.anchor = span;
