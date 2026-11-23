@@ -21,6 +21,25 @@ manifest.key = der.toString('base64');
 const id = createHash('sha256').update(der).digest('hex').slice(0, 32)
   .replace(/[0-9a-f]/g, digit => String.fromCharCode(97 + parseInt(digit, 16)));
 writeFileSync(manifestPath, JSON.stringify(manifest));
+if (!process.env.RIGHT_TO_REPLY_LIVE) {
+  // Exercise the actual background loader with deterministic network replies.
+  const fixture = {
+    'mikemayne/right-to-reply/main/data/sources.json': JSON.stringify([
+      { repository: 'owner/broken' }, { repository: 'owner/example-party' }
+    ]),
+    'owner/example-party/main/party.json': JSON.stringify({
+      id: 'example-party', name: 'Example Party', color: '#000000', keywords: ['example keyword']
+    }),
+    'owner/example-party/main/identifiers.json': JSON.stringify(['Example Party']),
+    'owner/example-party/main/responses/example%20keyword.md':
+      'Duis aute irure dolor in reprehenderit.\n\nExcepteur sint occaecat cupidatat non proident.\n'
+  };
+  const sourcePath = join(extension, 'sources.js');
+  writeFileSync(sourcePath, readFileSync(sourcePath, 'utf8') + '\n;globalThis.testRequests = [];\n' +
+    'globalThis.fetch = async url => { globalThis.testRequests.push(url); const files = ' +
+    JSON.stringify(fixture) + '; const key = url.replace("https://raw.githubusercontent.com/", "");' +
+    'return Object.hasOwn(files, key) ? new Response(files[key]) : new Response("", { status: 404 }); };\n');
+}
 const server = createServer((_, response) => {
   response.setHeader('Content-Type', 'text/html; charset=utf-8');
   response.end(readFileSync(join(root, 'demo/index.html')));
@@ -37,28 +56,27 @@ try {
   });
   const settings = context.pages()[0];
   await settings.goto('chrome-extension://' + id + '/settings.html');
-  // By default use an approved-format local fixture, not the availability
-  // of a live GitHub repository. Set RIGHT_TO_REPLY_LIVE=1 for a live smoke test.
-  if (!process.env.RIGHT_TO_REPLY_LIVE) {
-    require('./sample-data.js');
-    const data = globalThis.RightToReplyDemo;
-    data.parties[0].responses[0].response = 'Duis aute irure dolor in reprehenderit.';
-    data.parties[0].responses[0].description = 'Excepteur sint occaecat cupidatat non proident.';
-    await settings.evaluate(data => chrome.storage.local.set({
-      snapshot: { data, checkedAt: Date.now(), version: 1 }, lastAttempt: Date.now()
-    }), data);
-  }
   const page = await context.newPage();
   await page.goto('http://127.0.0.1:' + server.address().port + '/');
   const mark = page.locator('#match [data-right-to-reply-mark]');
   await mark.waitFor();
   assert.equal(await mark.evaluate(node => node.style.getPropertyValue('--right-to-reply-color')), '#000000');
   assert.equal(await page.locator('nav [data-right-to-reply-mark],#negative [data-right-to-reply-mark]').count(), 0);
+  if (!process.env.RIGHT_TO_REPLY_LIVE) {
+    const worker = context.serviceWorkers()[0];
+    assert.ok(worker);
+    assert.equal(await worker.evaluate(() => testRequests.filter(url => url.includes('/responses/')).length), 0);
+  }
   await mark.press('Enter');
   // Use the browser accessibility tree because page JavaScript cannot inspect the closed shadow.
   const cdp = await context.newCDPSession(page);
   const inspectDialog = async () => {
-    const { nodes } = await cdp.send('Accessibility.getFullAXTree');
+    let nodes;
+    for (let i = 0; i < 100; i++) {
+      ({ nodes } = await cdp.send('Accessibility.getFullAXTree'));
+      if (nodes.some(node => node.name?.value?.includes('Excepteur sint occaecat'))) break;
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
     const dialog = nodes.find(node => node.role.value === 'dialog');
     assert.ok(dialog);
     const byId = new Map(nodes.map(node => [node.nodeId, node]));
@@ -72,6 +90,9 @@ try {
     assert.match(names, /Excepteur sint occaecat cupidatat non proident/);
   };
   await inspectDialog();
+  if (!process.env.RIGHT_TO_REPLY_LIVE) {
+    assert.equal(await context.serviceWorkers()[0].evaluate(() => testRequests.filter(url => url.includes('/responses/')).length), 1);
+  }
   assert.equal(await page.evaluate(() => document.body.lastElementChild.shadowRoot), null);
   await page.keyboard.press('Escape');
   await page.locator('#linked a').tap();

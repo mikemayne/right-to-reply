@@ -61,10 +61,11 @@ const RightToReplyMatcher = (() => {
       for (const name of new Set([party.name, ...(party.identifiers ?? [])])) {
         addKeyword(names, name, party.id);
       }
-      for (const entry of party.responses) {
+      for (const entry of party.responses ?? party.keywords.map(keyword => ({ keyword }))) {
         addKeyword(keywords, entry.keyword, {
-          partyId: party.id, partyName: party.name,
-          keyword: entry.keyword, response: entry.response, description: entry.description
+          partyId: party.id, partyName: party.name, keyword: entry.keyword,
+          ...(party.repository ? { repository: party.repository } :
+            { response: entry.response, description: entry.description })
         });
       }
     }

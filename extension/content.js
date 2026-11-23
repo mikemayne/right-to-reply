@@ -293,8 +293,22 @@
     for (const policy of group.candidates) {
       const card = add('article', '');
       add('strong', policy.partyName, card);
-      add('p', policy.response, card);
-      add('p', policy.description, card);
+      const status = add('p', 'Loading response…', card);
+      status.setAttribute('role', 'status');
+      api.runtime.sendMessage({ type: 'load-reply', repository: policy.repository, keyword: policy.keyword })
+        .then(result => {
+          if (active !== anchor || !card.isConnected) return;
+          if (!result) {
+            status.textContent = 'Response currently unavailable.';
+          } else {
+            status.remove();
+            add('p', result.response, card);
+            add('p', result.description, card);
+          }
+          position();
+        }, () => {
+          if (card.isConnected) status.textContent = 'Response currently unavailable.';
+        });
     }
     document.body.append(host);
     position();
@@ -347,7 +361,7 @@
 
   function configure(saved) {
     const data = saved.snapshot?.data;
-    const enabled = Boolean(data?.parties.some(party => party.responses.length)) &&
+    const enabled = data?.schemaVersion === 2 && Boolean(data.parties.some(party => party.keywords.length)) &&
       saved.enabled !== false && saved.sites?.[location.hostname] !== false;
     const updated = saved.snapshot?.version;
     if (settings.enabled === enabled &&
