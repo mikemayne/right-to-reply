@@ -33,6 +33,11 @@ def main():
                 "https://release-assets.githubusercontent.com/*",
                 "https://objects.githubusercontent.com/*",
             ],
+            "content_security_policy": {"extension_pages": (
+                "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
+                "connect-src https://github.com https://release-assets.githubusercontent.com "
+                "https://objects.githubusercontent.com; object-src 'none'; base-uri 'none'; frame-src 'none'"
+            )},
             "background": {"service_worker": "sync.js"},
             "action": {"default_popup": "settings.html"},
             "content_scripts": [{

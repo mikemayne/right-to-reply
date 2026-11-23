@@ -52,16 +52,22 @@ try {
   assert.equal(await mark.evaluate(node => node.style.getPropertyValue('--check-policy-color')), '#3468ac');
   assert.equal(await page.locator('nav [data-check-policy-mark],#negative [data-check-policy-mark]').count(), 0);
   await mark.press('Enter');
-  const dialog = page.getByRole('dialog');
-  await dialog.waitFor();
-  assert.match(await dialog.innerText(), /Your one line response to the keyword goes here/);
-  assert.match(await dialog.innerText(), /An extended description/);
-  assert.equal(await dialog.locator('a').count(), 0);
+  // Use the browser accessibility tree because page JavaScript cannot inspect the closed shadow.
+  const cdp = await context.newCDPSession(page);
+  const inspectDialog = async () => {
+    const { nodes } = await cdp.send('Accessibility.getFullAXTree');
+    assert.ok(nodes.some(node => node.role.value === 'dialog'));
+    const names = nodes.map(node => node.name?.value).join(' ');
+    assert.match(names, /Your one line response to the keyword goes here/);
+    assert.match(names, /An extended description/);
+  };
+  await inspectDialog();
+  assert.equal(await page.evaluate(() => document.body.lastElementChild.shadowRoot), null);
   await page.keyboard.press('Escape');
   await page.locator('#linked a').tap();
   assert.equal(new URL(page.url()).hash, '#match');
   await page.locator('#linked [data-check-policy-control]').press('Enter');
-  await dialog.waitFor();
+  await inspectDialog();
   await settings.evaluate(() => chrome.storage.local.set({ demo: false }));
   await mark.waitFor({ state: 'detached' });
   console.log('Browser demo passed, including popup, native link, and empty approved feed.');
