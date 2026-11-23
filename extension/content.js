@@ -267,6 +267,19 @@
     host.style.setProperty('top', Math.max(8, Math.min(y, innerHeight - height - 8)) + 'px', 'important');
   }
 
+  function revealDetail(detail) {
+    // Scroll only the panel, accounting for its sticky header.
+    const panel = popup.getBoundingClientRect();
+    const header = popup.querySelector('header').getBoundingClientRect();
+    const top = Math.max(panel.top + popup.clientTop, header.bottom) + 8;
+    const bottom = panel.top + popup.clientTop + popup.clientHeight - 8;
+    const rect = detail.getBoundingClientRect();
+    if (rect.height > bottom - top || rect.top < top) {
+      popup.scrollTop += rect.top - top;
+    } else if (rect.bottom > bottom) {
+      popup.scrollTop += rect.bottom - bottom;
+    }
+  }
   function open(mark, pin) {
     const group = groups.get(mark);
     const anchor = group?.anchor;
@@ -277,6 +290,7 @@
     origin = pin ? anchor : mark;
     pinned = pin;
     popup.replaceChildren();
+    popup.scrollTop = 0;
     const header = add('header', '');
     const logo = add('img', '', header);
     logo.className = 'logo';
@@ -311,7 +325,11 @@
             detail.className = 'detail';
             add('strong', policy.partyName, detail);
             add('p', result.description, detail);
-            details.addEventListener('toggle', () => { if (active === anchor) position(); });
+            details.addEventListener('toggle', () => {
+              if (active !== anchor || !card.isConnected) return;
+              position();
+              if (details.open) revealDetail(detail);
+            });
             details.addEventListener('click', () => { pinned = true; clearTimeout(leaveTimer); });
           }
           position();
