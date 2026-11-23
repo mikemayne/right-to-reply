@@ -1,14 +1,14 @@
-[data-check-policy-mark] {
-  text-decoration: underline dotted var(--check-policy-color, currentColor) !important;
+[data-right-to-reply-mark] {
+  text-decoration: underline dotted var(--right-to-reply-color, currentColor) !important;
   text-decoration-thickness: 2px !important;
   text-underline-offset: .2em !important;
 }
-[data-check-policy-mark][role="button"] { cursor: help !important; }
-[data-check-policy-mark]:focus-visible, [data-check-policy-control]:focus-visible {
+[data-right-to-reply-mark][role="button"] { cursor: help !important; }
+[data-right-to-reply-mark]:focus-visible, [data-right-to-reply-control]:focus-visible {
   outline: 2px solid currentColor;
   outline-offset: 2px;
 }
-[data-check-policy-control] {
+[data-right-to-reply-control] {
   all: unset;
   box-sizing: border-box;
   display: inline-grid;
@@ -18,14 +18,14 @@
   margin-inline-start: 3px;
   color: CanvasText;
   background: Canvas;
-  border: 1px solid var(--check-policy-color, currentColor);
+  border: 1px solid var(--right-to-reply-color, currentColor);
   border-radius: 50%;
   font: 600 12px/1 system-ui;
   cursor: help;
   vertical-align: middle;
 }
 @media (forced-colors: none) {
-  [data-check-policy-mark][data-reply-segments] {
+  [data-right-to-reply-mark][data-reply-segments] {
     text-decoration: none !important;
     background-image: var(--reply-segments) !important;
     background-size: 100% 2px !important;
@@ -34,5 +34,5 @@
   }
 }
 @media (forced-colors: active) {
-  [data-check-policy-mark] { text-decoration-color: LinkText !important; }
+  [data-right-to-reply-mark] { text-decoration-color: LinkText !important; }
 }

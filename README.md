@@ -44,8 +44,10 @@ Reviewers verify authority and wording, then record the decision in the public P
 
 The same build generates `dist/website/right-to-reply.mjs`. Host this module from your site and call `createScanner(approvedData)({ headline, blocks })`. It returns participating parties and matches for the headline and each supplied block. Match offsets are UTF-16 indices. Render response and description as text.
 
-Run `node tools/validate.cjs` and `node --test tests/feed.test.cjs` to validate the data and exercise the matcher and refresh logic.
+Run `node tools/validate.cjs` and `node --test tests/feed.test.cjs` to validate the data and exercise the matcher and refresh logic. Run `python tools/package.py`, install Playwright and its Chromium browser, then run `node tests/browser.mjs` for a deterministic extension integration test. Set `RIGHT_TO_REPLY_LIVE=1` to exercise the real test repository instead.
 
-Identifiers accept joined, spaced and hyphenated spellings. For additional multi-word identifiers, the first and last space-separated parts may appear in either order anywhere in the same article. Middle names are optional. This rule also applies to multi-word aliases submitted in the name list. A response keyword must still match.
+Identifiers accept joined, spaced and hyphenated spellings, but the complete approved name or alias must match. List shorter names, alternate spellings and reversed name order explicitly in `identifiers.json` if desired. Separate first names and surnames scattered through an article do not qualify a party. A response keyword must still match.
+
+Each semantic article (including individual social-media posts where identifiable) is scanned independently. Navigation, hidden content and unrelated articles do not supply the party mention. On pages without semantic article markup the extension uses the main content area, or the body as a fallback. Dynamic changes rescan affected article roots instead of resetting the whole page.
 
 Each party chooses one six-digit hex underline colour in its party.json. Shared matches get equal-width colour segments, one per participating party. Segment order and popup order are shuffled separately for each match. Forced-colour mode uses the reader's system underline colour.

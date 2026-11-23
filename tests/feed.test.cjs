@@ -71,18 +71,31 @@ test('keyword variants preserve offsets and whole-word boundaries', () => {
   }
 });
 
-test('identifiers support spelling variants and article-wide first and last names', () => {
+test('identifiers require complete approved names or explicitly listed aliases', () => {
   const data = structuredClone(sample);
-  data.parties[0].identifiers = ['Example Party', 'Alex Robin Exampleton', 'Jamie Smith-Jones'];
+  data.parties[0].identifiers = ['Example Party', 'Alex Robin Exampleton', 'Alex Exampleton', 'Jamie Smith-Jones'];
   const matcher = feed.matcher(feed.validate(data), reply);
   for (const blocks of [
     ['exampleParty'], ['EXAMPLE_PARTY'], ['AlexRobinExampleton'], ['Alex-Robin-Exampleton'],
-    ['Exampleton spoke.', 'Later Alex replied.'], ['SmithJones said so.', 'Jamie agreed.']
+    ['Alex Exampleton spoke.'], ['Jamie SmithJones agreed.']
   ]) assert.equal(matcher.identify(blocks).size, 1);
   for (const blocks of [['Alex alone'], ['Exampleton alone'], ['Alexandra Exampleton'],
-    ['Alex and Smith-Jones'], ['Example yesterday', 'Party today']]) {
+    ['Alex and Smith-Jones'], ['Example yesterday', 'Party today'],
+    ['Exampleton spoke.', 'Later Alex replied.'], ['Jamie spoke to Smith-Jones'],
+    ['Alex told Exampleton the news.']]) {
     assert.equal(matcher.identify(blocks).size, 0);
   }
+});
+
+test('longer or ambiguous identifiers do not qualify the wrong party', () => {
+  const data = structuredClone(sample);
+  data.parties[0].identifiers = ['Example Party', 'Alex Exampleton', 'Shared Alias'];
+  data.parties.push({ ...structuredClone(data.parties[0]), id: 'other', name: 'Other Party',
+    identifiers: ['Other Party', 'New Example Party', 'Shared Alias'] });
+  const matcher = feed.matcher(feed.validate(data), reply);
+  assert.deepEqual([...matcher.identify(['New Example Party'])], ['other']);
+  assert.equal(matcher.identify(['Shared Alias']).size, 0);
+  assert.deepEqual([...matcher.identify(['Shared Alias', 'Other Party'])], ['other']);
 });
 
 test('shared matches shuffle the two responses and the two party colours independently', () => {

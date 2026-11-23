@@ -40,20 +40,7 @@ const RightToReplyFeed = (() => {
   }
 
   function matcher(data, reply) {
-    const catalog = { parties: data.parties, policies: [], brands: Object.create(null) };
-    const registry = data.parties.map(party => {
-      catalog.brands[party.id] = { color: party.color };
-      const policyIds = party.responses.map((entry, index) => {
-        const id = party.id + '/' + index;
-        catalog.policies.push({
-          id, partyId: party.id, partyName: party.name,
-          search: [entry.keyword], response: entry.response, description: entry.description
-        });
-        return id;
-      });
-      return { partyId: party.id, active: true, partyAliases: party.identifiers ?? [], representatives: [], policyIds };
-    });
-    return reply.create(catalog, registry);
+    return reply.create(data.parties);
   }
 
   return { validate, matcher };
