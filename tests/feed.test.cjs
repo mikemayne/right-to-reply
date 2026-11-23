@@ -148,3 +148,12 @@ test('source directory loads main and publishes edits without directory changes'
   await assert.rejects(sources.load([{ repository: '../bad' }], feed, request), /Invalid source/);
   await assert.rejects(sources.load([...directory, { repository: 'OWNER/EXAMPLE-PARTY' }], feed, request), /Invalid source/);
 });
+
+
+test('short responses allow 128 characters and reject 129', () => {
+  const data = structuredClone(sample);
+  data.parties[0].responses[0].response = 'a'.repeat(128);
+  assert.doesNotThrow(() => feed.validate(data));
+  data.parties[0].responses[0].response += 'a';
+  assert.throws(() => feed.validate(data));
+});

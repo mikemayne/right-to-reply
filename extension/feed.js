@@ -29,7 +29,7 @@ const RightToReplyFeed = (() => {
       const keywords = new Set();
       for (const entry of party.responses) {
         if (!exact(entry, ['keyword', 'response', 'description']) || !plain(entry.keyword, 100) ||
-            !/[\p{L}\p{N}]/u.test(entry.keyword) || !plain(entry.response, 160) ||
+            !/[\p{L}\p{N}]/u.test(entry.keyword) || !plain(entry.response, 128) ||
             !plain(entry.description, 255) || keywords.has(entry.keyword.normalize('NFKC').toLowerCase())) {
           throw new Error('Invalid keyword or response in ' + party.id + '.');
         }

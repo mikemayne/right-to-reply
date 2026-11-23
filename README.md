@@ -26,7 +26,7 @@ Each participating party has a dedicated public GitHub repository controlled by 
 
 Put one Markdown file per response in `responses/`. The filename without `.md` is the keyword, including spaces. For example, `responses/example keyword.md` matches the phrase **example keyword**. Renaming the file changes the keyword. Deleting it withdraws that response on the next approved release.
 
-Write two plain-text paragraphs, each on one line, separated by a blank line. The first is the short response (up to 160 characters), the second the extended description (up to 255). For example:
+Write two plain-text paragraphs, each on one line, separated by a blank line. The first is the short response (up to 128 characters), the second the extended description (up to 255). For example:
 
 ```text
 Your one-line response to the keyword goes here.
