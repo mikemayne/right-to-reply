@@ -16,7 +16,7 @@ Download or clone this repository. From its root run `python tools/package.py` (
 
 For an Xcode wrapper, run `xcrun safari-web-extension-packager "$PWD/dist/safari"` on a Mac. Older Xcode versions call this command `safari-web-extension-converter`. Set a development bundle identifier and signing team in the generated project. In Safari, grant the extension access to the demo or other site you want to test. See [Apple’s packaging instructions](https://developer.apple.com/documentation/safariservices/packaging-a-web-extension-for-safari) and [running instructions](https://developer.apple.com/documentation/safariservices/running-your-safari-web-extension).
 
-To exercise the extension, run `python -m http.server 8000` from the repository root and open `http://localhost:8000/demo/`. Open the extension popup on that tab and check **Enable fictional localhost demo**. Activate the underline beneath **example keyword** to see the response. The linked example has a separate response control and its original link remains usable. The demo works only on loopback sites. On ordinary sites the initial approved feed is empty. Use **Refresh approved responses** to check for new data immediately.
+To exercise the extension, run `python -m http.server 8000` from the repository root and open `http://localhost:8000/demo/`. The page mentions the fictional party and keyword. The extension shows the response once its source revision has been approved and released. Use **Refresh approved responses** in the popup to check immediately. The package contains no reply data.
 
 ## Public submissions
 

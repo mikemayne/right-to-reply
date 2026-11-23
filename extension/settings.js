@@ -7,16 +7,13 @@
   const host = /^https?:/.test(tab?.url ?? '') ? new URL(tab.url).hostname : '';
   const enabled = document.querySelector('#enabled');
   const site = document.querySelector('#site');
-  const demo = document.querySelector('#demo');
   const refresh = document.querySelector('#refresh');
   const status = document.querySelector('#status');
-  const saved = await storage.get(['enabled', 'sites', 'demo']);
+  const saved = await storage.get(['enabled', 'sites']);
   enabled.checked = saved.enabled !== false;
   enabled.disabled = false;
   site.checked = Boolean(host) && saved.sites?.[host] !== false;
   site.disabled = !host;
-  demo.checked = saved.demo === true;
-  demo.disabled = !['localhost', '127.0.0.1', '[::1]'].includes(host);
   function save(input, task) {
     input.addEventListener('change', async () => {
       input.disabled = true;
@@ -31,7 +28,6 @@
     });
   }
   save(enabled, checked => storage.set({ enabled: checked }));
-  save(demo, checked => storage.set({ demo: checked }));
   save(site, async checked => {
     const { sites = {} } = await storage.get('sites');
     await storage.set({ sites: { ...sites, [host]: checked } });
