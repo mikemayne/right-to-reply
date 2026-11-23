@@ -225,7 +225,7 @@
   host.style.cssText = 'all:initial!important;position:fixed!important;z-index:2147483647!important;top:0!important;left:0!important';
   const shadow = host.attachShadow({ mode: 'closed' });
   const style = document.createElement('style');
-  style.textContent = 'section{box-sizing:border-box;width:min(360px,calc(100vw - 16px));max-height:min(65vh,470px);overflow:auto;padding:14px;border:1px solid GrayText;border-radius:8px;background:Canvas;color:CanvasText;color-scheme:light dark;box-shadow:0 4px 20px #0004;font:14px/1.45 system-ui} h2{font-size:1.1em;margin:0 32px 8px 0} p{margin:5px 0} article+article{border-top:1px solid GrayText;margin-top:10px;padding-top:10px} button{float:right;font:inherit} summary{cursor:pointer;color:CanvasText;font-weight:600;overflow-wrap:anywhere;padding:4px 0} summary:hover{text-decoration:underline} summary:focus-visible{outline:2px solid currentColor;outline-offset:2px} details strong{display:block;margin-top:6px} details p{overflow-wrap:anywhere}';
+  style.textContent = "*{box-sizing:border-box}\nsection{width:min(380px,calc(100vw - 16px));max-height:min(72vh,520px);overflow:auto;padding:0;border:2px solid #202124;border-radius:12px;background:#f4f4f2;color:#202124;color-scheme:light;box-shadow:0 8px 28px #0005,0 0 0 3px #fff;font:14px/1.5 system-ui,sans-serif}\nheader{position:sticky;top:0;z-index:1;display:flex;align-items:center;gap:10px;padding:12px;background:#202124;color:#fff}\n.logo{width:34px;height:34px;padding:3px;background:#fff;color:#202124;border-radius:5px;flex:none;object-fit:contain;font:700 10px/28px system-ui}\n.brand{flex:1;min-width:0}\n.brand strong{display:block;font:700 12px/1.35 system-ui,sans-serif;letter-spacing:.055em;text-transform:uppercase}\n.brand small{display:block;margin-top:3px;font:400 11px/1.35 system-ui,sans-serif;color:#e4e4e4}\nbutton{flex:none;border:1px solid #777;background:transparent;color:#fff;font:24px/1 system-ui;cursor:pointer;width:32px;height:32px;border-radius:5px;padding:0}\nbutton:hover{background:#454545}\n.body{padding:10px;display:grid;gap:8px}\narticle{border:1px solid #d3d3d3;border-radius:7px;background:#fff}\narticle>p{margin:12px}\nsummary{cursor:pointer;color:#202124;font-weight:600;overflow-wrap:anywhere;padding:12px;min-height:44px}\nsummary:hover{background:#f3f3f3;border-radius:6px;text-decoration:underline}\nsummary:focus-visible,button:focus-visible{outline:2px solid currentColor;outline-offset:-4px}\n.detail{margin:0 12px;padding:10px 0 12px;border-top:1px solid #ddd;color:#202124}\n.detail strong{font-size:12px;display:block}\n.detail p{overflow-wrap:anywhere;margin:4px 0 0}\n.note{margin:0;padding:0 12px 12px;font:400 11px/1.4 system-ui,sans-serif;color:#505050}\n@media(forced-colors:active){section,header,article,summary,.detail,button{background:Canvas;color:CanvasText;border-color:CanvasText;box-shadow:none}.brand small,.note{color:CanvasText}}";
   const popup = document.createElement('section');
   popup.setAttribute('role', 'dialog');
   popup.setAttribute('aria-labelledby', 'right-to-reply-title');
@@ -277,12 +277,25 @@
     origin = pin ? anchor : mark;
     pinned = pin;
     popup.replaceChildren();
-    const button = add('button', 'Close');
+    const header = add('header', '');
+    const logo = add('img', '', header);
+    logo.className = 'logo';
+    logo.alt = 'R2R';
+    logo.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwAgMAAAAqbBEUAAAADFBMVEX////7+/uSkpIEBASgfnrjAAABK0lEQVR42nWSMUtCURiGn6M3QWy4KkW0NLW06E+4wcXFKfBCBUJ7Q0u7DjYE/Ysmdekf6NSsU2tulRAJFbcb+TZ47z3XoDN9D+/hOR8vB/6crTXykqEifSVzDij0MolmNhlStQm199jgQLDLWmJhoMU/NrjNbuAGrQQ6oZesV9Hej3ved2NoqiH1YsEmJ9CO4YUJVL0V5EfuZ9cBwARsjaa10AMcDZnP77MlOJ0w7SE40kcamJKm9taFfAADUH6NdnzmYwCaelw1AFCT3xgMDgHYGElzaWUvS/qWlm4uFr6BqSfgRsf4BjB9WLSLy6vk3VJo1HMAAiiYU7t3U5KXs6xJBqJUjbgepxBxRgqmW7UC3RVtQt1kbE/mMh+Ps/2bg+e1P5QkpvUQbP8CSaNuXP0jovIAAAAASUVORK5CYII=';
+    const brand = add('div', '', header);
+    brand.className = 'brand';
+    add('strong', 'Independent browser extension', brand);
+    add('small', 'Not supplied by this publication', brand);
+    const button = add('button', '×', header);
     button.type = 'button';
+    button.setAttribute('aria-label', 'Close response');
     button.addEventListener('click', () => close(true));
-    add('h2', 'Right to Reply').id = 'right-to-reply-title';
+    popup.setAttribute('aria-label', 'Right to Reply');
+    popup.removeAttribute('aria-labelledby');
+    const body = add('div', '');
+    body.className = 'body';
     for (const policy of group.candidates) {
-      const card = add('article', '');
+      const card = add('article', '', body);
       const status = add('p', 'Loading response…', card);
       status.setAttribute('role', 'status');
       api.runtime.sendMessage({ type: 'load-reply', repository: policy.repository, keyword: policy.keyword })
@@ -294,8 +307,10 @@
             status.remove();
             const details = add('details', '', card);
             add('summary', result.response, details);
-            add('strong', policy.partyName, details);
-            add('p', result.description, details);
+            const detail = add('div', '', details);
+            detail.className = 'detail';
+            add('strong', policy.partyName, detail);
+            add('p', result.description, detail);
             details.addEventListener('toggle', () => { if (active === anchor) position(); });
             details.addEventListener('click', () => { pinned = true; clearTimeout(leaveTimer); });
           }
@@ -304,6 +319,7 @@
           if (card.isConnected) status.textContent = 'Response currently unavailable.';
         });
     }
+    add('p', 'Select a statement to reveal its source.').className = 'note';
     document.body.append(host);
     position();
     if (pin) button.focus({ preventScroll: true });
