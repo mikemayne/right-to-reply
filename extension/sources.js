@@ -3,6 +3,7 @@
 const RightToReplySources = (() => {
   const root = 'https://raw.githubusercontent.com/';
   const directoryUrl = root + 'mikemayne/right-to-reply/main/data/sources.json';
+  const disclaimerUrl = root + 'mikemayne/right-to-reply/main/data/disclaimer.json';
   const backoff = new Map();
 
   async function read(url, limit, request) {
@@ -89,13 +90,17 @@ const RightToReplySources = (() => {
     return { data: { schemaVersion: 2, parties }, failed };
   }
 
+  async function loadDisclaimer(validator, request = fetch) {
+    return validator.validateDisclaimer(JSON.parse(await read(disclaimerUrl, 65536, request)));
+  }
+
   async function loadReply(repository, keyword, validator, request = fetch) {
     if (!validator.repository(repository) || !validator.keyword(keyword)) throw new Error('Invalid reply path');
     const url = root + repository + '/main/responses/' + encodeURIComponent(keyword + '.md');
     return validator.validateReply(await read(url, 8192, request));
   }
 
-  return { load, loadReply };
+  return { load, loadReply, loadDisclaimer };
 })();
 if (typeof module === 'object') module.exports = RightToReplySources;
 else globalThis.RightToReplySources = RightToReplySources;

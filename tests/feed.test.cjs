@@ -256,3 +256,49 @@ test('rate limiting backs off the affected repository without blocking others', 
   assert.equal((await sources.loadReply('owner/working', 'keyword', feed, request)).response, 'Reply.');
   assert.equal(calls.length, 2);
 });
+
+
+test('owner disclaimer accepts only inert text and a validated HTTPS link', async () => {
+  assert.deepEqual(feed.validateDisclaimer({}), {});
+  const notice = {message: '<b>plain text</b>', link: 'https://example.org/notice', linkText: 'Details'};
+  assert.deepEqual(feed.validateDisclaimer(notice), notice);
+  assert.deepEqual(feed.validateDisclaimer({message: '  Notice  '}), {message: 'Notice'});
+  for (const data of [[], null, {html: '<script>'}, {message: 5}, {linkText:'Details'},
+      {link:'javascript:alert(1)'}, {link:'https://user:pass@example.org'},
+      {link:'https://example.org:invalid'}, {link:'//example.org'}, {link:'https://example.org\\@evil.org'},
+      {message:'a'.repeat(4097)}, {message:'a\u202eb'}]) {
+    assert.throws(() => feed.validateDisclaimer(data));
+  }
+  const request = async url => {
+    assert.equal(url, 'https://raw.githubusercontent.com/mikemayne/right-to-reply/main/data/disclaimer.json');
+    return new Response(JSON.stringify(notice));
+  };
+  assert.deepEqual(await sources.loadDisclaimer(feed, request), notice);
+  await assert.rejects(sources.loadDisclaimer(feed, async () => new Response('{"link":"javascript:alert(1)"}')));
+});
+
+test('disclaimer changes and withdrawals refresh snapshot without an extension update', async () => {
+  const storage = memoryStorage();
+  let time = 10000;
+  let notice = {};
+  let broken = false;
+  const sync = createSync(storage, async () => {
+    if (broken) throw new Error('disclaimer unavailable');
+    return {data: {...metadata, disclaimer: feed.validateDisclaimer(notice)}, failed: []};
+  }, () => time);
+  await sync(false);
+  const version = storage.state.snapshot.version;
+  notice = {message:'Owner notice'};
+  time += 15 * 60 * 1000;
+  await sync(false);
+  assert.deepEqual(storage.state.snapshot.data.disclaimer, notice);
+  assert.notEqual(storage.state.snapshot.version, version);
+  broken = true;
+  assert.equal((await sync(true)).state, 'cached');
+  assert.deepEqual(storage.state.snapshot.data.disclaimer, notice);
+  broken = false;
+  notice = {};
+  time += 15 * 60 * 1000;
+  await sync(false);
+  assert.deepEqual(storage.state.snapshot.data.disclaimer, {});
+});

@@ -306,8 +306,8 @@
     button.addEventListener('click', () => close(true));
     popup.setAttribute('aria-label', 'Right to Reply');
     popup.removeAttribute('aria-labelledby');
-    // Only the extension package supplies this configuration, never a party feed.
-    const disclaimer = typeof RightToReplyDisclaimer === 'undefined' ? {} : RightToReplyDisclaimer;
+    // Only the central, validated snapshot supplies this notice, never a party feed.
+    const disclaimer = settings.disclaimer ?? {};
     if (disclaimer.message || disclaimer.link) {
       const notice = add('div', '');
       notice.className = 'disclaimer';
@@ -407,7 +407,9 @@
     const updated = saved.snapshot?.version;
     if (settings.enabled === enabled &&
         settings.updated === updated) return;
-    settings = { enabled, updated };
+    let disclaimer = {};
+    try { disclaimer = feed.validateDisclaimer(data?.disclaimer ?? {}); } catch { /* Do not render invalid data. */ }
+    settings = { enabled, updated, disclaimer };
     if (enabled) matcher = feed.matcher(data, reply);
     reset();
   }

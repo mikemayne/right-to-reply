@@ -62,11 +62,36 @@ const RightToReplyFeed = (() => {
     }
     return { response: lines[0], description: lines[2] };
   }
+  function validateDisclaimer(data) {
+    if (!data || typeof data !== 'object' || Array.isArray(data) ||
+        Object.keys(data).some(key => !['message', 'link', 'linkText'].includes(key))) {
+      throw new Error('Invalid owner disclaimer');
+    }
+    const result = {};
+    for (const [key, value] of Object.entries(data)) {
+      if (typeof value !== 'string' || value.length > 4096 || /[\p{Cc}\p{Cf}]/u.test(value)) {
+        throw new Error('Invalid disclaimer ' + key);
+      }
+      if (value.trim()) result[key] = value.trim();
+    }
+    if (result.link) {
+      if (!/^https:\/\//i.test(result.link) || /[\s\\]/u.test(result.link)) throw new Error('Invalid disclaimer link');
+      const url = new URL(result.link);
+      if (url.protocol !== 'https:' || !url.hostname || url.username || url.password) {
+        throw new Error('Invalid disclaimer link');
+      }
+      result.link = url.href;
+    } else if (result.linkText) {
+      throw new Error('Disclaimer linkText requires a link');
+    }
+    return result;
+  }
+
   function matcher(data, reply) {
     return reply.create(data.parties);
   }
 
-  return { validate, validateParty, validateReply, repository, keyword, matcher };
+  return { validate, validateParty, validateReply, validateDisclaimer, repository, keyword, matcher };
 })();
 if (typeof module === 'object') module.exports = RightToReplyFeed;
 else globalThis.RightToReplyFeed = RightToReplyFeed;

@@ -1,6 +1,6 @@
 # Right to Reply
 
-Right to Reply displays approved plain-text responses alongside keyword mentions when the participating party is named in the same article. It matches names and keywords locally. The extension downloads only the approved source directory and party metadata from each repository’s `main` branch, then fetches individual response files when a reader opens a popup. Requests contain no article text or page URL, but the requested keyword filename is visible to GitHub.
+Right to Reply displays approved plain-text responses alongside keyword mentions when the participating party is named in the same article. It matches names and keywords locally. The extension downloads the approved source directory, optional owner disclaimer and party metadata from each repository’s `main` branch, then fetches individual response files when a reader opens a popup. Requests contain no article text or page URL, but the requested keyword filename is visible to GitHub.
 
 ## Install in debug mode
 
@@ -20,7 +20,7 @@ To exercise the extension, run `python -m http.server 8000` from the repository 
 
 ## Optional owner disclaimer
 
-The extension owner's `extension/disclaimer.json` can contain an optional plain-text message and/or an HTTPS link. The disclaimer appears immediately below the independent extension header, before any party statements. Leave the file as `{}` or omit it to display nothing.
+The extension owner's `data/disclaimer.json` can contain an optional plain-text message and/or an HTTPS link. The disclaimer appears immediately below the independent extension header, before any party statements. Set the file to `{}` to display nothing.
 
 ```json
 {
@@ -30,7 +30,7 @@ The extension owner's `extension/disclaimer.json` can contain an optional plain-
 }
 ```
 
-All fields are optional; `linkText` requires `link`. Without link text, the URL itself is shown. The packaging tool validates this configuration and bundles it locally; editing the disclaimer requires rebuilding and distributing the extension. Party repositories cannot set it. No HTML, automatic network requests, additional permissions or party-supplied links are introduced. The link opens a new tab only when selected, without a referrer.
+All fields are optional; `linkText` requires `link`. Without link text, the URL itself is shown. The extension downloads and validates this JSON from the central repository’s `main` branch during its existing metadata refresh (normally every 15 minutes while browsing). Edit the file and merge to `main`; no rebuild or store update is required. Party repositories cannot set it. Invalid or unavailable disclaimer data uses the existing last-valid snapshot fallback (up to 24 hours), rather than silently dropping a legal notice. No HTML, additional permissions or party-supplied links are introduced. The link opens a new tab only when selected, without a referrer. As with source updates, delivery depends on the browser being active, network availability and HTTP caching.
 
 ## Public submissions
 
