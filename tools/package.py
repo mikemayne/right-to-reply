@@ -65,8 +65,9 @@ def main():
                 "run_at": "document_idle",
             }],
         }
-        if target == "firefox":
+        if target in ("firefox", "safari"):
             manifest["background"] = {"scripts": ["feed.js", "sources.js", "sync.js"]}
+        if target == "firefox":
             manifest["browser_specific_settings"] = {
                 "gecko": {"id": "right-to-reply@mikemayne", "data_collection_permissions": {"required": ["none"]}}
             }
