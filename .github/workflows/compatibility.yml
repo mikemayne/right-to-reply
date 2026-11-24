@@ -1,0 +1,37 @@
+name: Real website compatibility
+on:
+  pull_request:
+    paths:
+      - 'tests/compatibility.mjs'
+      - 'tests/compatibility-sites.json'
+      - '.github/workflows/compatibility.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compatibility:
+    name: Website compatibility shard ${{ matrix.shard }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - run: python tools/package.py
+      - run: npm install --no-save --no-package-lock playwright pngjs
+      - run: npx playwright install --with-deps chromium
+      - run: node --check tests/compatibility.mjs
+      - run: node tests/compatibility.mjs
+        env:
+          R2R_SHARD: ${{ matrix.shard }}
+          R2R_SHARDS: 4
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: compatibility-shard-${{ matrix.shard }}
+          path: compatibility-results/
+          retention-days: 3
