@@ -1,0 +1,146 @@
+[
+  {
+    "id": "bbc",
+    "url": "https://www.bbc.co.uk/news"
+  },
+  {
+    "id": "guardian",
+    "url": "https://www.theguardian.com/uk"
+  },
+  {
+    "id": "independent",
+    "url": "https://www.independent.co.uk/news/uk"
+  },
+  {
+    "id": "sky",
+    "url": "https://news.sky.com/uk"
+  },
+  {
+    "id": "itv",
+    "url": "https://www.itv.com/news"
+  },
+  {
+    "id": "channel4",
+    "url": "https://www.channel4.com/news"
+  },
+  {
+    "id": "telegraph",
+    "url": "https://www.telegraph.co.uk/news/"
+  },
+  {
+    "id": "times",
+    "url": "https://www.thetimes.com/uk"
+  },
+  {
+    "id": "mirror",
+    "url": "https://www.mirror.co.uk/news/uk-news/"
+  },
+  {
+    "id": "mail",
+    "url": "https://www.dailymail.co.uk/news/index.html"
+  },
+  {
+    "id": "express",
+    "url": "https://www.express.co.uk/news/uk"
+  },
+  {
+    "id": "standard",
+    "url": "https://www.standard.co.uk/news"
+  },
+  {
+    "id": "metro",
+    "url": "https://metro.co.uk/news/"
+  },
+  {
+    "id": "inews",
+    "url": "https://inews.co.uk/news"
+  },
+  {
+    "id": "politico",
+    "url": "https://www.politico.eu/"
+  },
+  {
+    "id": "reuters",
+    "url": "https://www.reuters.com/world/uk/"
+  },
+  {
+    "id": "ap",
+    "url": "https://apnews.com/world-news"
+  },
+  {
+    "id": "financial-times",
+    "url": "https://www.ft.com/uk-politics"
+  },
+  {
+    "id": "aljazeera",
+    "url": "https://www.aljazeera.com/news/"
+  },
+  {
+    "id": "france24",
+    "url": "https://www.france24.com/en/"
+  },
+  {
+    "id": "dw",
+    "url": "https://www.dw.com/en/top-stories/s-9097"
+  },
+  {
+    "id": "euronews",
+    "url": "https://www.euronews.com/"
+  },
+  {
+    "id": "irish-times",
+    "url": "https://www.irishtimes.com/"
+  },
+  {
+    "id": "rte",
+    "url": "https://www.rte.ie/news/"
+  },
+  {
+    "id": "scotsman",
+    "url": "https://www.scotsman.com/news"
+  },
+  {
+    "id": "walesonline",
+    "url": "https://www.walesonline.co.uk/news/"
+  },
+  {
+    "id": "devonlive",
+    "url": "https://www.devonlive.com/news/"
+  },
+  {
+    "id": "bristolpost",
+    "url": "https://www.bristolpost.co.uk/news/"
+  },
+  {
+    "id": "yorkshirepost",
+    "url": "https://www.yorkshirepost.co.uk/news"
+  },
+  {
+    "id": "liverpool-echo",
+    "url": "https://www.liverpoolecho.co.uk/news/"
+  },
+  {
+    "id": "cnn",
+    "url": "https://edition.cnn.com/world"
+  },
+  {
+    "id": "npr",
+    "url": "https://www.npr.org/sections/news/"
+  },
+  {
+    "id": "pbs",
+    "url": "https://www.pbs.org/newshour/"
+  },
+  {
+    "id": "abc-au",
+    "url": "https://www.abc.net.au/news"
+  },
+  {
+    "id": "cbc",
+    "url": "https://www.cbc.ca/news"
+  },
+  {
+    "id": "reddit",
+    "url": "https://www.reddit.com/r/ukpolitics/"
+  }
+]

@@ -79,3 +79,20 @@ Identifiers accept joined, spaced and hyphenated spellings, but the complete app
 Each semantic article (including individual social-media posts where identifiable) is scanned independently. Navigation, hidden content and unrelated articles do not supply the party mention. On pages without semantic article markup the extension uses the main content area, or the body as a fallback. Dynamic changes rescan affected article roots instead of resetting the whole page.
 
 All parties use the same neutral dotted underline, following the site's text colour for contrast against its background. Short responses use the popup's foreground colour and are shuffled for each match. Readers choose a statement on its merits; selecting it reveals the party name and extended description. Forced-colour mode uses the reader's system underline colour. Existing party colour metadata is retained for compatibility but does not style the underline or short response.
+
+## Real-publication compatibility testing
+
+The optional **Real website compatibility** GitHub Actions workflow visits 36 public news/social sites in four independent Chromium shards. It runs on changes to its test files and can be dispatched manually after merge. It is separate from deterministic release tests and does not publish or change the production extension or party data.
+
+Run locally from the repository root:
+
+```sh
+python tools/package.py
+npm install --no-save --no-package-lock playwright pngjs
+npx playwright install chromium
+node tests/compatibility.mjs
+```
+
+A disposable extension/profile uses fictional test replies with keywords drawn from visible public text. It visits the entry page and, when possible, a public article, compares the same document with the extension off and on, checks the reply popup through the accessibility tree, scrolls, disables the extension and reloads with it enabled. Reports include text and link integrity, layout changes, JavaScript errors, browser task-duration measurements, screenshot pixel differences and match counts. Screenshots of review cases are short-lived CI artifacts, not committed. No login, paywall or bot protection is bypassed; public sites that cannot be exercised are inconclusive rather than passes. Publisher controls that might submit data are not clicked. Dynamic content makes screenshot differences and error comparisons diagnostic, not proof of causation. Manual review and browser-specific testing remain necessary. Results are available in workflow job summaries and downloadable JSON artifacts.
+
+Use `R2R_SITES_FILE` to supply a different local JSON list of `{"id":"example","url":"https://example.org/"}` objects, and `R2R_SHARD` / `R2R_SHARDS` to split the suite. `RIGHT_TO_REPLY_BROWSER` can select an installed Chromium executable. This test is not shipped in browser packages.
