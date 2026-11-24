@@ -1,5 +1,7 @@
 # Right to Reply
 
+**Our guarantee:** Right to Reply is free to use, will always remain free to use, and will never include advertising.
+
 Right to Reply displays approved plain-text responses alongside keyword mentions when the participating party is named in the same article. It matches names and keywords locally. The extension downloads the approved source directory, optional owner disclaimer and party metadata from each repository’s `main` branch, then fetches individual response files when a reader opens a popup. Requests contain no article text or page URL, but the requested keyword filename is visible to GitHub.
 
 ## Install in debug mode
