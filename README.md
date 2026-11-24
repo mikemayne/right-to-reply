@@ -1,5 +1,7 @@
 # Right to Reply
 
+**Our guarantee:** Right to Reply is free to use, will always remain free to use, and will never include advertising.
+
 Right to Reply displays approved plain-text responses alongside keyword mentions when the participating party is named in the same article. It matches names and keywords locally. The extension downloads the complete approved response bundles for every enrolled party on a daily background schedule, independent of browsing. Every match and reply lookup is local. No accounts, telemetry, advertising, browsing-history collection or keyword-specific network requests.
 
 ## Privacy by design
