@@ -67,6 +67,8 @@ def main():
         }
         if target in ("firefox", "safari"):
             manifest["background"] = {"scripts": ["feed.js", "sources.js", "sync.js"]}
+        if target == "safari":
+            manifest["background"]["persistent"] = False
         if target == "firefox":
             manifest["browser_specific_settings"] = {
                 "gecko": {"id": "right-to-reply@mikemayne", "data_collection_permissions": {"required": ["none"]}}
