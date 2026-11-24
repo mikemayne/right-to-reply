@@ -58,17 +58,21 @@ const RightToReplySources = (() => {
         const { repository } = sources[index];
         try {
           const base = root + repository + '/main/';
-          const [party, identifiers, keywords] = await Promise.all([
+          const [party, identifiers, bundle] = await Promise.all([
             read(base + 'party.json', 65536, request).then(JSON.parse),
             read(base + 'identifiers.json', 256 * 1024, request).then(JSON.parse),
-            read(root + repository + '/keyword-index/keywords.json', 256 * 1024, request).then(JSON.parse)
+            read(root + repository + '/keyword-index/responses.json', 8 * 1024 * 1024, request).then(JSON.parse)
           ]);
           const fields = party && Object.keys(party).sort().join(',');
           // Ignore the old manual list during migration; never use it for discovery.
           if (fields !== 'color,id,name' && fields !== 'color,id,keywords,name') throw new Error('Invalid party metadata');
-          results[index] = validator.validateParty({
+          if (!Array.isArray(bundle) || !bundle.every(entry => Array.isArray(entry) && entry.length === 2 && validator.keyword(entry[0]))) throw new Error('Invalid response bundle');
+          const keywords = bundle.map(entry => entry[0]);
+          const metadata = validator.validateParty({
             id: party.id, name: party.name, color: party.color, repository, identifiers, keywords
           });
+          const replies = bundle.map(([keyword, body]) => ({ keyword, ...validator.validateReply(body) }));
+          results[index] = { ...metadata, replies };
         } catch { /* Invalid or unavailable party; leave other parties alone. */ }
       }
     }
@@ -87,20 +91,14 @@ const RightToReplySources = (() => {
       names.add(name);
       parties.push(party);
     }
-    return { data: { schemaVersion: 2, parties }, failed };
+    return { data: { schemaVersion: 3, parties }, failed };
   }
 
   async function loadDisclaimer(validator, request = fetch) {
     return validator.validateDisclaimer(JSON.parse(await read(disclaimerUrl, 65536, request)));
   }
 
-  async function loadReply(repository, keyword, validator, request = fetch) {
-    if (!validator.repository(repository) || !validator.keyword(keyword)) throw new Error('Invalid reply path');
-    const url = root + repository + '/main/responses/' + encodeURIComponent(keyword + '.md');
-    return validator.validateReply(await read(url, 8192, request));
-  }
-
-  return { load, loadReply, loadDisclaimer };
+  return { load, loadDisclaimer };
 })();
 if (typeof module === 'object') module.exports = RightToReplySources;
 else globalThis.RightToReplySources = RightToReplySources;

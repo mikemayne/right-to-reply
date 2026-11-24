@@ -402,7 +402,7 @@
 
   function configure(saved) {
     const data = saved.snapshot?.data;
-    const enabled = data?.schemaVersion === 2 && Boolean(data.parties.some(party => party.keywords.length)) &&
+    const enabled = data?.schemaVersion === 3 && Boolean(data.parties.some(party => party.keywords.length)) &&
       saved.enabled !== false && saved.sites?.[location.hostname] !== false;
     const updated = saved.snapshot?.version;
     if (settings.enabled === enabled &&
@@ -422,11 +422,5 @@
   }
   api.storage.onChanged.addListener(refresh);
   refresh();
-  const syncSources = () => api.runtime.sendMessage({ type: 'refresh-responses' }).catch(() => {});
-  const syncWhenVisible = () => {
-    if (!document.hidden) syncSources();
-  };
-  document.addEventListener('visibilitychange', syncWhenVisible);
-  setInterval(syncWhenVisible, 15 * 60 * 1000);
-  syncSources();
+  // No page load, visibility change, match or popup triggers a network request.
 })();

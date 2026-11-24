@@ -46,7 +46,7 @@ def main():
             "name": "Right to Reply",
             "version": "0.2.0",
             "description": "Read publicly reviewed responses from participating parties.",
-            "permissions": ["storage", "activeTab"],
+            "permissions": ["storage", "activeTab", "alarms"],
             "host_permissions": [
                 origin + "/*",
             ],
