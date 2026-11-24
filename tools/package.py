@@ -43,7 +43,7 @@ def main():
     for target in ("chrome", "edge", "firefox", "safari"):
         manifest = {
             "manifest_version": 3,
-            "name": "Right to Reply",
+            "name": "Right To Reply" if target == "safari" else "Right to Reply",
             "version": "0.2.0",
             "description": "Read publicly reviewed responses from participating parties.",
             "permissions": ["storage", "activeTab", "alarms"],
