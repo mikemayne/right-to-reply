@@ -33,9 +33,8 @@ if (!process.env.RIGHT_TO_REPLY_LIVE) {
       id: 'example-party', name: 'Example Party', color: '#000000'
     }),
     'owner/example-party/main/identifiers.json': JSON.stringify(['Example Party']),
-    'owner/example-party/keyword-index/keywords.json': JSON.stringify(['example keyword']),
-    'owner/example-party/main/responses/example%20keyword.md':
-      'Duis aute irure dolor in reprehenderit.\n\nExcepteur sint occaecat cupidatat non proident.\n'
+    'owner/example-party/keyword-index/responses.json': JSON.stringify([['example keyword',
+      'Duis aute irure dolor in reprehenderit.\n\nExcepteur sint occaecat cupidatat non proident.\n']])
   };
   const sourcePath = join(extension, 'sources.js');
   writeFileSync(sourcePath, readFileSync(sourcePath, 'utf8') + '\n;globalThis.testRequests = [];\n' +
@@ -66,10 +65,13 @@ try {
   assert.equal(await mark.evaluate(node => getComputedStyle(node).textDecorationColor), await mark.evaluate(node => getComputedStyle(node).color));
   assert.equal(await mark.evaluate(node => node.hasAttribute('data-reply-segments')), false);
   assert.equal(await page.locator('nav [data-right-to-reply-mark],#negative [data-right-to-reply-mark]').count(), 0);
+  let beforePopup;
   if (!process.env.RIGHT_TO_REPLY_LIVE) {
     const worker = context.serviceWorkers()[0];
     assert.ok(worker);
     assert.equal(await worker.evaluate(() => testRequests.filter(url => url.includes('/responses/')).length), 0);
+    assert.equal(await worker.evaluate(() => testRequests.filter(url => url.endsWith('/responses.json') && url.includes('example-party')).length), 1);
+    beforePopup = await worker.evaluate(() => testRequests.length);
   }
   await mark.press('Enter');
   // Use the browser accessibility tree because page JavaScript cannot inspect the closed shadow.
@@ -117,7 +119,7 @@ try {
   };
   await inspectDialog();
   if (!process.env.RIGHT_TO_REPLY_LIVE) {
-    assert.equal(await context.serviceWorkers()[0].evaluate(() => testRequests.filter(url => url.includes('/responses/')).length), 1);
+    assert.equal(await context.serviceWorkers()[0].evaluate(() => testRequests.length), beforePopup, 'Opening and expanding a reply must make no network requests');
   }
   assert.equal(await page.evaluate(() => document.body.lastElementChild.shadowRoot), null);
   await page.keyboard.press('Escape');

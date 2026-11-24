@@ -34,6 +34,7 @@ const metadata = { schemaVersion: 2, parties: [{
   repository: 'owner/example-party', id: 'example-party', name: 'Example Party',
   color: '#000000', identifiers: ['Example Party'], keywords: ['example keyword']
 }] };
+const complete = { schemaVersion: 3, parties: [{ ...metadata.parties[0], replies: [{ keyword: 'example keyword', response: 'Reply.', description: 'Description.' }] }] };
 function memoryStorage() {
   const state = {};
   return { state, get: async () => structuredClone(state),
@@ -43,7 +44,7 @@ function memoryStorage() {
 test('metadata refresh preserves a bounded directory cache, publishes partial updates and removes withdrawals', async () => {
   const storage = memoryStorage();
   let time = 10000;
-  let data = metadata;
+  let data = complete;
   let failed = [];
   let broken = false;
   let requests = 0;
@@ -62,45 +63,32 @@ test('metadata refresh preserves a bounded directory cache, publishes partial up
   assert.equal((await sync(true)).state, 'unavailable');
   assert.equal(storage.state.snapshot, null);
   broken = false;
-  data = { schemaVersion: 2, parties: [] };
+  data = { schemaVersion: 3, parties: [] };
   failed = ['owner/broken'];
   assert.equal((await sync(true)).state, 'partial');
   assert.deepEqual(storage.state.snapshot.data.parties, []);
   time += 61000;
-  assert.equal((await sync(false)).state, 'partial');
+  assert.equal((await sync(false)).state, 'cached');
 });
 
-test('reply requests are authorised, deduplicated, cached briefly, and invalidated by refresh or removal', async () => {
+test('reply lookups use only the complete local snapshot, reject legacy metadata and expire', async () => {
   const storage = memoryStorage();
   let time = 10000;
-  storage.state.snapshot = { data: metadata, checkedAt: time };
-  let requests = 0;
-  let broken = false;
-  const get = createReplyLoader(storage, async () => {
-    requests++;
-    if (broken) throw new Error('missing reply');
-    return { response: 'Reply ' + requests, description: 'Description.' };
-  }, () => time);
+  const get = createReplyLoader(storage, () => time);
   const repo = metadata.parties[0].repository;
   const keyword = 'example keyword';
+  storage.state.snapshot = { data: metadata, checkedAt: time };
+  assert.equal(await get(repo, keyword), null);
+  storage.state.snapshot = { data: structuredClone(complete), checkedAt: time };
   assert.equal(await get('owner/unapproved', keyword), null);
   assert.equal(await get(repo, 'other keyword'), null);
-  assert.equal(requests, 0);
-  const [a, b] = await Promise.all([get(repo, keyword), get(repo, keyword)]);
-  assert.deepEqual(a, b);
-  assert.equal(requests, 1);
-  assert.deepEqual(await get(repo, keyword), a);
-  time += 5 * 60 * 1000;
-  assert.equal((await get(repo, keyword)).response, 'Reply 2');
-  time++;
-  storage.state.snapshot.checkedAt = time;
-  broken = true;
+  assert.deepEqual(await get(repo, keyword), { response: 'Reply.', description: 'Description.' });
+  storage.state.snapshot.data.parties[0].replies[0].response = 'Updated.';
+  assert.equal((await get(repo, keyword)).response, 'Updated.');
+  time += 24 * 60 * 60 * 1000;
   assert.equal(await get(repo, keyword), null);
-  broken = false;
-  assert.equal((await get(repo, keyword)).response, 'Reply 4');
-  storage.state.snapshot.data = { schemaVersion: 2, parties: [] };
+  storage.state.snapshot = { data: { schemaVersion: 3, parties: [] }, checkedAt: time };
   assert.equal(await get(repo, keyword), null);
-  assert.equal(requests, 4);
 });
 
 test('metadata-only matcher returns references without response text', () => {
@@ -178,7 +166,7 @@ test('shared matches shuffle responses without exposing party colours in match s
 });
 
 
-test('metadata loads no response files and isolates malformed or unavailable parties', async () => {
+test('complete bundles load independently of reader activity and isolate malformed or unavailable parties', async () => {
   const repo = 'owner/example-party';
   const directory = [{ repository: 'owner/broken' }, { repository: repo }, { repository: 'owner/invalid' }];
   const directoryUrl = 'https://raw.githubusercontent.com/mikemayne/right-to-reply/main/data/sources.json';
@@ -194,8 +182,7 @@ test('metadata loads no response files and isolates malformed or unavailable par
       [directoryUrl]: JSON.stringify(directory),
       [base + 'party.json']: JSON.stringify({ id: 'example-party', name: 'Example Party', color: '#000000', keywords: ['ignored legacy keyword'] }),
       [base + 'identifiers.json']: JSON.stringify(['Example Party']),
-      ['https://raw.githubusercontent.com/' + repo + '/keyword-index/keywords.json']: JSON.stringify(['example keyword']),
-      [base + 'responses/example%20keyword.md']: response + '\n\nExtended description.\n',
+      ['https://raw.githubusercontent.com/' + repo + '/keyword-index/responses.json']: JSON.stringify([['example keyword', response + '\n\nExtended description.\n']]),
       ['https://raw.githubusercontent.com/owner/invalid/main/party.json']: '{}',
       ['https://raw.githubusercontent.com/owner/invalid/main/identifiers.json']: '[]'
     };
@@ -203,23 +190,20 @@ test('metadata loads no response files and isolates malformed or unavailable par
   };
   const result = await sources.load(undefined, feed, request);
   assert.deepEqual(result.failed, ['owner/broken', 'owner/invalid']);
-  assert.deepEqual(result.data, metadata);
+  assert.equal(result.data.schemaVersion, 3);
+  assert.deepEqual(result.data.parties[0].replies, [{keyword: 'example keyword', response: 'Original response.', description: 'Extended description.'}]);
   assert.equal(calls.length, 10);
   assert.ok(!calls.some(url => url.includes('/responses/')));
-  for (const expected of ['Original response.', 'Updated response.']) {
-    response = expected;
-    const reply = await sources.loadReply(repo, 'example keyword', feed, request);
-    assert.equal(reply.response, expected);
-  }
+  response = 'Updated response.';
+  assert.equal((await sources.load(directory, feed, request)).data.parties[0].replies[0].response, response);
   response = '<script>';
-  await assert.rejects(sources.loadReply(repo, 'example keyword', feed, request));
-  await assert.rejects(sources.loadReply(repo, '../escape', feed, request));
+  assert.equal((await sources.load(directory, feed, request)).data.parties.length, 0);
   await assert.rejects(sources.load([{ repository: repo, commit: 'a'.repeat(40) }], feed, request), /Invalid source/);
   await assert.rejects(sources.load([{ repository: '../bad' }], feed, request), /Invalid source/);
   await assert.rejects(sources.load([...directory, { repository: 'OWNER/EXAMPLE-PARTY' }], feed, request), /Invalid source/);
 });
 
-test('reply size boundaries apply to both inline and on-demand data', () => {
+test('reply size boundaries apply to both inline and bundled data', () => {
   const data = structuredClone(sample);
   data.parties[0].responses[0].response = 'a'.repeat(128);
   assert.doesNotThrow(() => feed.validate(data));
@@ -250,11 +234,13 @@ test('rate limiting backs off the affected repository without blocking others', 
       new Response('', { status: 429, headers: { 'Retry-After': '60' } }) :
       new Response('Reply.\n\nDescription.\n');
   };
-  await assert.rejects(sources.loadReply('owner/limited', 'keyword', feed, request));
-  await assert.rejects(sources.loadReply('owner/limited', 'another keyword', feed, request));
-  assert.equal(calls.length, 1);
-  assert.equal((await sources.loadReply('owner/working', 'keyword', feed, request)).response, 'Reply.');
-  assert.equal(calls.length, 2);
+  const limited = [{ repository: 'owner/limited' }];
+  assert.deepEqual((await sources.load(limited, feed, request)).failed, ['owner/limited']);
+  const count = calls.length;
+  await sources.load(limited, feed, request);
+  assert.equal(calls.length, count);
+  await sources.load([{ repository: 'owner/working' }], feed, request);
+  assert.equal(calls.length, count + 3);
 });
 
 
@@ -284,12 +270,12 @@ test('disclaimer changes and withdrawals refresh snapshot without an extension u
   let broken = false;
   const sync = createSync(storage, async () => {
     if (broken) throw new Error('disclaimer unavailable');
-    return {data: {...metadata, disclaimer: feed.validateDisclaimer(notice)}, failed: []};
+    return {data: {...complete, disclaimer: feed.validateDisclaimer(notice)}, failed: []};
   }, () => time);
   await sync(false);
   const version = storage.state.snapshot.version;
   notice = {message:'Owner notice'};
-  time += 15 * 60 * 1000;
+  time += 24 * 60 * 60 * 1000;
   await sync(false);
   assert.deepEqual(storage.state.snapshot.data.disclaimer, notice);
   assert.notEqual(storage.state.snapshot.version, version);
@@ -298,7 +284,7 @@ test('disclaimer changes and withdrawals refresh snapshot without an extension u
   assert.deepEqual(storage.state.snapshot.data.disclaimer, notice);
   broken = false;
   notice = {};
-  time += 15 * 60 * 1000;
+  time += 24 * 60 * 60 * 1000;
   await sync(false);
   assert.deepEqual(storage.state.snapshot.data.disclaimer, {});
 });
