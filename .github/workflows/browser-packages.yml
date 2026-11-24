@@ -47,7 +47,10 @@ jobs:
                   for filename in manifest["icons"].values():
                       assert filename in archive.namelist(), filename
                   background = manifest["background"]
-                  if browser in ("firefox", "safari"):
+                  if browser == "safari":
+                      assert background == {"scripts": ["feed.js", "sources.js", "sync.js"], "persistent": False}, path
+                      assert manifest["name"] == "Right To Reply", path
+                  elif browser == "firefox":
                       assert background == {"scripts": ["feed.js", "sources.js", "sync.js"]}, path
                   else:
                       assert background == {"service_worker": "sync.js"}, path
