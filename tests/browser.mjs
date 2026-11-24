@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { generateKeyPairSync, createHash } from 'node:crypto';
-import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
@@ -22,6 +22,11 @@ const id = createHash('sha256').update(der).digest('hex').slice(0, 32)
   .replace(/[0-9a-f]/g, digit => String.fromCharCode(97 + parseInt(digit, 16)));
 writeFileSync(manifestPath, JSON.stringify(manifest));
 const testDisclaimer = process.env.RIGHT_TO_REPLY_TEST_DISCLAIMER === '1';
+const storeAssets = process.env.RIGHT_TO_REPLY_STORE_ASSETS;
+if (storeAssets && (testDisclaimer || process.env.RIGHT_TO_REPLY_LIVE)) throw new Error('Store captures require deterministic demo data');
+if (storeAssets) mkdirSync(storeAssets, { recursive: true });
+const shortReply = storeAssets ? 'We support improving local bus services.' : 'Duis aute irure dolor in reprehenderit.';
+const longReply = storeAssets ? 'Our fictional policy is to prioritise reliable, accessible buses and publish service performance data.' : 'Excepteur sint occaecat cupidatat non proident.';
 if (!process.env.RIGHT_TO_REPLY_LIVE) {
   // Exercise the actual background loader with deterministic network replies.
   const fixture = {
@@ -33,8 +38,10 @@ if (!process.env.RIGHT_TO_REPLY_LIVE) {
       id: 'example-party', name: 'Example Party', color: '#000000'
     }),
     'owner/example-party/main/identifiers.json': JSON.stringify(['Example Party']),
-    'owner/example-party/keyword-index/responses.json': JSON.stringify([['example keyword',
-      'Duis aute irure dolor in reprehenderit.\n\nExcepteur sint occaecat cupidatat non proident.\n']])
+    'owner/example-party/keyword-index/responses.json': JSON.stringify([
+      ['example keyword', shortReply + '\n\n' + longReply + '\n'],
+      ...(storeAssets ? [['public transport', shortReply + '\n\n' + longReply + '\n']] : [])
+    ])
   };
   const sourcePath = join(extension, 'sources.js');
   writeFileSync(sourcePath, readFileSync(sourcePath, 'utf8') + '\n;globalThis.testRequests = [];\n' +
@@ -44,7 +51,15 @@ if (!process.env.RIGHT_TO_REPLY_LIVE) {
 }
 const server = createServer((_, response) => {
   response.setHeader('Content-Type', 'text/html; charset=utf-8');
-  response.end(readFileSync(join(root, 'demo/index.html')));
+  let html = readFileSync(join(root, 'demo/index.html'), 'utf8');
+  if (storeAssets) html = html.replaceAll('example keyword', 'public transport')
+    .replace('<main>', '<style>body{margin:0;background:#f5f5f2;color:#202124;font:20px/1.65 system-ui,sans-serif}main{max-width:850px;margin:64px auto;padding:36px 48px;background:white;border:1px solid #ddd}h1{font-size:42px;line-height:1.16;margin:24px 0}nav{border-bottom:1px solid #ddd;padding-bottom:20px;font-size:15px}nav a{color:inherit}p{margin:24px 0}</style><main>')
+    .replace('Navigation public transport', 'Fictional news article — demonstration only')
+    .replace('Example Party mentioned in a fictional article', 'Example Party discusses local services')
+    .replace('The meeting discussed the <em>public transport</em>.', 'At a community meeting, the Example Party discussed plans for <em>public transport</em> in the local area.')
+    .replace('The minutes also mention', 'The meeting also covered future investment in')
+    .replace('The next meeting is Tuesday.', 'Residents will have a chance to discuss the proposals at the next community meeting. All names and policies in this demonstration are fictional.');
+  response.end(html);
 });
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 
@@ -54,7 +69,8 @@ try {
     channel: 'chromium',
     executablePath: process.env.RIGHT_TO_REPLY_BROWSER || undefined,
     args: ['--disable-extensions-except=' + extension, '--load-extension=' + extension],
-    hasTouch: true
+    hasTouch: true,
+    ...(storeAssets ? { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1 } : {})
   });
   const settings = context.pages()[0];
   await settings.goto('chrome-extension://' + id + '/settings.html');
@@ -73,9 +89,11 @@ try {
     assert.equal(await worker.evaluate(() => testRequests.filter(url => url.endsWith('/responses.json') && url.includes('example-party')).length), 1);
     beforePopup = await worker.evaluate(() => testRequests.length);
   }
+  if (storeAssets) await page.screenshot({ path: join(storeAssets, '01-keyword.png') });
   await mark.press('Enter');
   // Use the browser accessibility tree because page JavaScript cannot inspect the closed shadow.
   const cdp = await context.newCDPSession(page);
+  let captured = false;
   const inspectDialog = async () => {
     const dialogNames = async () => {
       const { nodes } = await cdp.send('Accessibility.getFullAXTree');
@@ -95,13 +113,15 @@ try {
     let names = '';
     for (let i = 0; i < 100; i++) {
       names = await dialogNames();
-      if (names.includes('Duis aute irure dolor in reprehenderit')) break;
+      if (names.includes(shortReply.slice(0,-1))) break;
       await new Promise(resolve => setTimeout(resolve, 50));
     }
-    assert.match(names, /Duis aute irure dolor in reprehenderit/);
+    assert.ok(names.includes(shortReply.slice(0,-1)), names);
     assert.match(names, /Independent\s+browser\s+extension/i);
     assert.match(names, /Not supplied by this publication/);
-    assert.doesNotMatch(names, /Example Party|Excepteur sint occaecat/);
+    assert.doesNotMatch(names, /Example Party/);
+    assert.ok(!names.includes(longReply.slice(0,-1)), names);
+    if (storeAssets && !captured) await page.screenshot({ path: join(storeAssets, '02-short-reply.png') });
     if (testDisclaimer) {
       assert.match(names, /Owner notice <b>plain text<\/b>/);
       assert.match(names, /Further information/);
@@ -111,11 +131,15 @@ try {
     await page.keyboard.press('Enter');
     for (let i = 0; i < 100; i++) {
       names = await dialogNames();
-      if (names.includes('Excepteur sint occaecat')) break;
+      if (names.includes(longReply.slice(0,-1))) break;
       await new Promise(resolve => setTimeout(resolve, 50));
     }
     assert.match(names, /Example Party/);
-    assert.match(names, /Excepteur sint occaecat cupidatat non proident/);
+    assert.ok(names.includes(longReply.slice(0,-1)), names);
+    if (storeAssets && !captured) {
+      await page.screenshot({ path: join(storeAssets, '03-expanded-reply.png') });
+      captured = true;
+    }
   };
   await inspectDialog();
   if (!process.env.RIGHT_TO_REPLY_LIVE) {
@@ -162,6 +186,15 @@ try {
   assert.ok(await originalMark.evaluate(node => node.isConnected));
   await settings.evaluate(() => chrome.storage.local.set({ enabled: false }));
   await mark.waitFor({ state: 'detached' });
+  if (storeAssets) {
+    const promo = await context.newPage();
+    await promo.setViewportSize({ width: 440, height: 280 });
+    const logo = readFileSync(join(extension, 'icon-128.png'));
+    writeFileSync(join(storeAssets, 'store-icon.png'), logo);
+    await promo.setContent('<html><body style="margin:0;background:#202124;color:white;display:grid;place-items:center;height:280px;font-family:system-ui,sans-serif"><div style="display:grid;justify-items:center;gap:16px"><div style="background:white;border-radius:12px;width:104px;height:104px;display:grid;place-items:center"><img width="88" height="88" alt="R2R" src="data:image/png;base64,' + logo.toString('base64') + '"></div><strong style="font-size:30px;letter-spacing:.02em">Right to Reply</strong><span style="font-size:15px;color:#ddd">Read the response. Decide for yourself.</span></div></body></html>');
+    await promo.screenshot({ path: join(storeAssets, 'small-promo-440x280.png') });
+    await promo.close();
+  }
   console.log('External response displayed with a working popup and native article link.');
 } finally {
   await context?.close();
