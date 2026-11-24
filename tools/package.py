@@ -43,7 +43,7 @@ def main():
     for target in ("chrome", "edge", "firefox", "safari"):
         manifest = {
             "manifest_version": 3,
-            "name": "Right to Reply",
+            "name": "Right To Reply" if target == "safari" else "Right to Reply",
             "version": "0.2.0",
             "description": "Read publicly reviewed responses from participating parties.",
             "permissions": ["storage", "activeTab", "alarms"],
@@ -67,6 +67,8 @@ def main():
         }
         if target in ("firefox", "safari"):
             manifest["background"] = {"scripts": ["feed.js", "sources.js", "sync.js"]}
+        if target == "safari":
+            manifest["background"]["persistent"] = False
         if target == "firefox":
             manifest["browser_specific_settings"] = {
                 "gecko": {"id": "right-to-reply@mikemayne", "data_collection_permissions": {"required": ["none"]}}
