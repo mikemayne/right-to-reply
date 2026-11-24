@@ -10,6 +10,10 @@ All readers receive the same public datasets. The extension does not transmit pa
 
 ## Install in debug mode
 
+**No local build required:** download your browser's ZIP from the [latest automated browser release](https://github.com/mikemayne/right-to-reply/releases/latest) and extract it into a folder. Chrome and Edge can load that folder directly; Firefox uses its `manifest.json`. Safari packages are unsigned; follow the Safari instructions below. Each release identifies its source commit and includes SHA-256 checksums. The Browser packages workflow rebuilds after extension or packaging changes on `main`, and can also be run manually from Actions.
+
+### Build from source (optional)
+
 Download or clone this repository. From its root run `python tools/package.py` (Python 3.10+). Use the unpacked directory for your browser.
 
 | Browser | Debug installation |
