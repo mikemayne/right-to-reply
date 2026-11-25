@@ -29,6 +29,8 @@ Participation is opt-in. All eligible UK political parties are offered the same 
 
 Privacy by design: the extension reads visible website text locally to identify relevant phrases. It downloads the same complete approved response datasets for every reader, independently of what they read. Article text, browsing history, page URLs, keyword matches and reply activity are not sent to the project or political parties. Site preferences remain on your device. GitHub receives ordinary network connection metadata for background dataset downloads. No account, advertising, analytics or tracking. You can turn matching off globally or for individual sites.
 
+Because Right to Reply adds underlines and popups to webpages, a website may be able to detect that the extension is installed and observe when a response popup is opened. Right to Reply itself does not record or transmit this activity. It cannot prevent websites from tracking interactions with their own pages.
+
 Free to use, forever, without advertising.
 
 ## Privacy practices answers
