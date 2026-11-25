@@ -8,6 +8,8 @@ Right to Reply displays approved plain-text responses alongside keyword mentions
 
 All readers receive the same public datasets. The extension does not transmit page URLs, article text, keyword matches, popup activity or political preferences. It stores complete public response bundles and settings locally, never a history of viewed replies. No external images, fonts or scripts are loaded into replies. GitHub or the configured CDN can see ordinary dataset requests and IP addresses; explicit external links are opened without a referrer, but the destination has its own privacy practices. Daily refresh runs while the browser permits background execution; installation, startup when due, and an explicit settings refresh are the only other triggers. No browsing action triggers a download. All future contributions must preserve these properties.
 
+Because Right to Reply adds underlines and popups to webpages, a website may be able to detect that the extension is installed and observe when a response popup is opened. Right to Reply itself does not record or transmit this activity. It cannot prevent websites from tracking interactions with their own pages.
+
 ## Install in debug mode
 
 **No local build required:** download your browser's ZIP from the [latest automated browser release](https://github.com/mikemayne/right-to-reply/releases/latest) and extract it into a folder. Chrome and Edge can load that folder directly; Firefox uses its `manifest.json`. Safari packages are unsigned; follow the Safari instructions below. Each release identifies its source commit and includes SHA-256 checksums. The Browser packages workflow rebuilds after extension or packaging changes on `main`, and can also be run manually from Actions.
